@@ -1,0 +1,49 @@
+#url: serial://ttyUSB1
+url: serial://com5
+update_rate: 3
+address_offset: 0
+pub_topic: pzem-004t
+options:
+  unit: 0x2c
+  word_order: lowhigh
+  scan_batching: 10
+registers:
+  - pub_topic: "voltage" # Voltage (0.1V)
+    address: 0
+    table: 'input'
+    scale: 0.1
+  - pub_topic: "current" # Current (0.001A)
+    address: 1
+    table: 'input'
+    type: uint32
+    scale: 0.001
+  - pub_topic: "power" # Power (0.1W)
+    address: 3
+    table: 'input'
+    type: uint32
+    scale: 0.1
+  - pub_topic: "energy" # Energy (1Wh)
+    address: 5
+    table: 'input'
+    type: uint32
+  - pub_topic: "frequency" # Power (0.1Hz)
+    address: 7
+    table: 'input'
+    scale: 0.1
+  - pub_topic: "cosphi" # Power factor (0.001)
+    address: 8
+    table: 'input'
+    scale: 0.001
+  - pub_topic: "alarm" # Alarm status
+    address: 9
+    table: 'input'
+    value_map:
+      yes: 0xFFFF
+      no: 0
+  - pub_topic: "alarm_threshold" # Alarm threshold (1W)
+    address: 1
+    table: 'holding'
+  - pub_topic: "unit" # Device ID
+    address: 2
+    table: 'holding'
+

@@ -2,11 +2,9 @@ from time import time, sleep
 from enum import Enum
 import logging
 from queue import Queue
-from pymodbus.client.sync import ModbusTcpClient, ModbusSocketFramer
+from urllib.parse import urlparse, parse_qs
 from pymodbus import exceptions
-from SungrowModbusTcpClient import SungrowModbusTcpClient
 
-DEFAULT_SCAN_RATE_S = 5
 DEFAULT_SCAN_BATCHING = 100
 MIN_SCAN_BATCHING = 1
 MAX_SCAN_BATCHING = 100
@@ -20,9 +18,8 @@ class WordOrder(Enum):
 
 class modbus_interface():
 
-    def __init__(self, ip, port=502, update_rate_s=DEFAULT_SCAN_RATE_S, variant=None, scan_batching=None, word_order=WordOrder.HighLow):
-        self._ip = ip
-        self._port = port
+    def __init__(self, url, scan_batching=None, word_order=WordOrder.HighLow, options={}):
+        self._url = urlparse(url)
         # This is a dict of sets. Each key represents one table of modbus registers.
         # At the moment it has 'input' and 'holding'
         self._tables = {'input': set(), 'holding': set()}
@@ -32,10 +29,16 @@ class modbus_interface():
 
         self._planned_writes = Queue()
         self._writing = False
-        self._variant = variant
-        self._scan_batching = DEFAULT_SCAN_BATCHING
-        self._word_order = word_order
-        if scan_batching is not None:
+        if options.get('word_order', 'highlow').lower() == 'lowhigh':
+            self._word_order = WordOrder.LowHigh
+        else:
+            self._word_order = WordOrder.HighLow
+
+        self._unit = options.get('unit', 0x01)
+        scan_batching = options.get('scan_batching', None)
+        if scan_batching is None:
+            self._scan_batching = DEFAULT_SCAN_BATCHING
+        else:
             if scan_batching < MIN_SCAN_BATCHING:
                 logging.warning("Bad value for scan_batching: {}. Enforcing minimum value of {}".format(scan_batching, MIN_SCAN_BATCHING))
                 self._scan_batching = MIN_SCAN_BATCHING
@@ -47,17 +50,41 @@ class modbus_interface():
 
     def connect(self):
         # Connects to the modbus device
-        if self._variant == 'sungrow':
-            # Some later versions of the sungrow inverter firmware encrypts the payloads of
-            # the modbus traffic. https://github.com/rpvelloso/Sungrow-Modbus is a drop-in
-            # replacement for ModbusTcpClient that manages decrypting the traffic for us.
-            self._mb = SungrowModbusTcpClient.SungrowModbusTcpClient(host=self._ip, port=self._port,
-                                              framer=ModbusSocketFramer, timeout=1,
-                                              RetryOnEmpty=True, retries=1)
+        if self._url.scheme == 'serial':
+            from pymodbus.client.sync import ModbusSerialClient, ModbusRtuFramer
+            port     = self._url.path or self._url.netloc
+            params   = parse_qs(self._url.query)
+            baudrate = params.get('baud', 9600)
+            comset   = params.get('comset', '')
+            if comset:
+              (bytesize, parity, stopbits) = comset[0:2]
+            else:
+              (bytesize, parity, stopbits) = (
+                params.get('bytesize', 8),
+                params.get('parity', 'N'),
+                params.get('stopbits', 1)
+              )
+            # baudrate parity stopbits
+            self._mb = ModbusSerialClient(port=port,
+                                       method='rtu',
+                                       timeout=1,RetryOnEmpty=True, retries=1
+                                       , baudrate=baudrate, parity=parity, stopbits=stopbits)
         else:
-            self._mb = ModbusTcpClient(self._ip, self._port,
-                                       framer=ModbusSocketFramer, timeout=1,
-                                       RetryOnEmpty=True, retries=1)
+            host=self._url.hostname
+            port=self._url.port if self._url.hasattr('port') else 502
+            if self._url.scheme == 'sungrow':
+                from SungrowModbusTcpClient import SungrowModbusTcpClient
+                # Some later versions of the sungrow inverter firmware encrypts the payloads of
+                # the modbus traffic. https://github.com/rpvelloso/Sungrow-Modbus is a drop-in
+                # replacement for ModbusTcpClient that manages decrypting the traffic for us.
+                self._mb = SungrowModbusTcpClient.SungrowModbusTcpClient(host=host, port=port,
+                                                  framer=ModbusSocketFramer, timeout=1,
+                                                  RetryOnEmpty=True, retries=1)
+            else:
+                from pymodbus.client.sync import ModbusTcpClient, ModbusSocketFramer
+                self._mb = ModbusTcpClient(host, port,
+                                           framer=ModbusSocketFramer, timeout=1,
+                                           RetryOnEmpty=True, retries=1)
 
     def add_monitor_register(self, table, addr, type='uint16'):
         # Accepts a modbus register and table to monitor
@@ -73,19 +100,23 @@ class modbus_interface():
         for table in self._tables:
             # This batches up modbus reads in chunks of self._scan_batching
             start = -1
+            scan_batching = len(self._tables[table])
+            if scan_batching > self._scan_batching:
+              scan_batching = self._scan_batching 
+              
             for k in sorted(self._tables[table]):
-                group = int(k) - int(k) % self._scan_batching
+                group = int(k) - int(k) % scan_batching
                 if (start < group):
                     try:
-                        values = self._scan_value_range(table, group, self._scan_batching)
-                        for x in range(0, self._scan_batching):
+                        values = self._scan_value_range(table, group, scan_batching)
+                        for x in range(0, scan_batching):
                             key = group + x
                             self._values[table][key] = values[x]
                         # Avoid back-to-back read operations that could overwhelm some modbus devices.
                         sleep(DEFAULT_READ_SLEEP_S)
                     except ValueError as e:
                         logging.exception("{}".format(e))
-                    start = group + self._scan_batching-1
+                    start = group + scan_batching - 1
         self._process_writes()
 
     def get_value(self, table, addr, type='uint16'):
@@ -138,7 +169,7 @@ class modbus_interface():
             while not self._planned_writes.empty() and (time() - write_start_time) < max_block_s:
                 addr, value, mask = self._planned_writes.get()
                 if mask == 0xFFFF:
-                    self._mb.write_register(addr, value, unit=0x01)
+                    self._mb.write_register(addr, value, unit=self._unit)
                 else:
                     # https://pymodbus.readthedocs.io/en/latest/source/library/pymodbus.client.html?highlight=mask_write_register#pymodbus.client.common.ModbusClientMixin.mask_write_register
                     # https://www.mathworks.com/help/instrument/modify-the-contents-of-a-holding-register-using-a-mask-write.html
@@ -166,9 +197,9 @@ class modbus_interface():
     def _scan_value_range(self, table, start, count):
         result = None
         if table == 'input':
-            result = self._mb.read_input_registers(start, count, unit=0x01)
+            result = self._mb.read_input_registers(start, count, unit=self._unit)
         elif table == 'holding':
-            result = self._mb.read_holding_registers(start, count, unit=0x01)
+            result = self._mb.read_holding_registers(start, count, unit=self._unit)
         try:
             return result.registers
         except:

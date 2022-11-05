@@ -11,6 +11,7 @@ from . import modbus_interface
 from . import version
 
 MAX_DECIMAL_POINTS = 8
+DEFAULT_SCAN_RATE_S = 5
 
 
 class mqtt_interface():
@@ -42,17 +43,9 @@ class mqtt_interface():
         self.connect_mqtt()
 
     def connect_modbus(self):
-        if self.config.get('word_order', 'highlow').lower() == 'lowhigh':
-            word_order = modbus_interface.WordOrder.LowHigh
-        else:
-            word_order = modbus_interface.WordOrder.HighLow
-
-        self._mb = modbus_interface.modbus_interface(self.config['ip'],
-                                                     self.config.get('port', 502),
-                                                     self.config.get('update_rate', 5),
-                                                     variant=self.config.get('variant', None),
-                                                     scan_batching=self.config.get('scan_batching', None),
-                                                     word_order=word_order)
+        self._mb = modbus_interface.modbus_interface(self.config['url'],
+                                                     options=self.config.get('options', { }),
+                                                    )
         failed_attempts = 1
         while self._mb.connect():
             logging.warning("Modbus connection attempt {} failed. Retrying...".format(failed_attempts))
@@ -255,11 +248,11 @@ class mqtt_interface():
         while True:
             # TODO this properly.
             self.poll()
-            sleep(self.config['update_rate'])
+            sleep(self.config.get('update_rate', DEFAULT_SCAN_RATE_S))
 
 
 @click.command()
-@click.option('--hostname', default='localhost',
+@click.option('--hostname', default='mqtt',
               help='The hostname or IP address of the MQTT server.', show_default=True)
 @click.option('--port', default=1883,
               help='The port of the MQTT server.', show_default=True)
@@ -267,9 +260,9 @@ class mqtt_interface():
               help='The username to authenticate to the MQTT server.', show_default=True)
 @click.option('--password', default='password',
               help='The password to authenticate to the MQTT server.', show_default=True)
-@click.option('--mqtt_topic_prefix', default='modbus4mqtt',
+@click.option('--mqtt_topic_prefix', default='wgw12/energy/pzem-004t',
               help='A prefix for published MQTT topics.', show_default=True)
-@click.option('--config', default='./Sungrow_SH5k_20.yaml',
+@click.option('--config', default='./PZEM-004t.yaml',
               help='The YAML config file for your modbus device.', show_default=True)
 @click.option('--use_tls', default=False,
               help='Configure network encryption and authentication options. Enables SSL/TLS.', show_default=True)
