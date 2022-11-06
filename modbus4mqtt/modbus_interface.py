@@ -1,5 +1,6 @@
 from time import time, sleep
 from enum import Enum
+from collections import namedtuple
 import logging
 from queue import Queue
 from urllib.parse import urlparse, parse_qs
@@ -11,16 +12,15 @@ MAX_SCAN_BATCHING = 100
 DEFAULT_WRITE_BLOCK_INTERVAL_S = 0.2
 DEFAULT_WRITE_SLEEP_S = 0.05
 DEFAULT_READ_SLEEP_S = 0.05
+VALID_TABLES = [ 'input', 'holding' ]
 
 class WordOrder(Enum):
     HighLow = 1
     LowHigh = 2
 
-class DeviceUnit():
-  def __init__(self, unit, table):
-    self.unit = unit
-    self.table = table
-  
+class DeviceUnit(namedtuple('DeviceUnit', [ 'unit', 'table' ])):
+  __slots__ = ()
+    
   @classmethod
   def get_unit(cls, instance, unit):
     if isinstance(instance, DeviceUnit):
@@ -41,10 +41,10 @@ class modbus_interface():
         self._url = urlparse(url)
         # This is a dict of sets. Each key represents one table of modbus registers.
         # At the moment it has 'input' and 'holding'
-        self._tables = {'input': set(), 'holding': set()}
+        self._tables = { }
 
         # This is a dicts of dicts. These hold the current values of the interesting registers
-        self._values = {'input': {}, 'holding': {}}
+        self._values = { }
 
         self._planned_writes = Queue()
         self._writing = False
@@ -106,19 +106,25 @@ class modbus_interface():
                                            framer=ModbusSocketFramer, timeout=1,
                                            RetryOnEmpty=True, retries=1)
 
-    def add_monitor_register(self, table, addr, type='uint16'):
+    def add_monitor_register(self, device_unit, addr, type='uint16'):
         # Accepts a modbus register and table to monitor
-        if table not in self._tables:
-            raise ValueError("Unsupported table type. Please only use: {}".format(self._tables.keys()))
+        table = DeviceUnit.get_table(device_unit)
+        if table not in VALID_TABLES:
+          raise ValueError("Unsupported table type {}. Please only use: {}".format(table, VALID_TABLES))
+        if device_unit not in self._tables:
+          self._tables[device_unit] = set()
+          self._values[device_unit] = dict()
+        
         # Register enough sequential addresses to fill the size of the register type.
         # Note: Each address provides 2 bytes of data.
         for i in range(type_length(type)):
-            self._tables[table].add(addr+i)
+            self._tables[device_unit].add(addr+i)
 
     def prepare(self):
       self._registers = dict()
       for (table, registers) in self._tables.items():
-        self._registers[table] = sorted(registers)
+        registers = sorted(registers)
+        self._registers[table] = registers
     
     def _get_scan_ranges(self, registers):
       ranges = [ ]
@@ -253,7 +259,7 @@ class modbus_interface():
             return result.registers
         except:
             # The result doesn't have a registers attribute, something has gone wrong!
-            raise ValueError("Failed to read {} {} table registers starting from {}: {}".format(count, table, start, result))
+            raise ValueError("Failed to read {} {} table registers from unit {} starting from {}: {}".format(count, table, unit, start, result))
 
 def type_length(type):
     # Return the number of addresses needed for the type.

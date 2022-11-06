@@ -30,13 +30,16 @@ class mqtt_interface():
         if not mqtt_topic_prefix.endswith('/'):
             mqtt_topic_prefix = mqtt_topic_prefix + '/'
         self.prefix = mqtt_topic_prefix
-        self.address_offset = self.config.get('address_offset', 0)
-        self.registers = self.config['registers']
-        for register in self.registers:
-            register['address'] += self.address_offset
         self.modbus_connect_retries = -1  # Retry forever by default
         self.modbus_reconnect_sleep_interval = 5  # Wait this many seconds between modbus connection attempts
 
+    def get_DeviceUnit(self, register):
+      table = register.get('table', 'holding')
+      unit = register.get('unit', None)
+      if unit is None:
+        unit = self.config['options'].get('unit', 0x01)
+      return modbus_interface.DeviceUnit(table=table, unit=unit)
+    
     def connect(self):
         # Connects to modbus and MQTT.
         self.connect_modbus()
@@ -58,7 +61,7 @@ class mqtt_interface():
             sleep(self.modbus_reconnect_sleep_interval)
         # Tells the modbus interface about the registers we consider interesting.
         for register in self.registers:
-            self._mb.add_monitor_register(register.get('table', 'holding'), register['address'], register.get('type', 'uint16'))
+            self._mb.add_monitor_register(self.get_DeviceUnit(register), register['address'], register.get('type', 'uint16'))
             register['value'] = None
         self._mb.prepare()
 
@@ -96,12 +99,13 @@ class mqtt_interface():
 
         for register in self._get_registers_with('pub_topic'):
             try:
-                value = self._mb.get_value( register.get('table', 'holding'),
+                value = self._mb.get_value( self.get_DeviceUnit(register),
                                             register['address'],
                                             register.get('type', 'uint16'))
-            except Exception:
+            except Exception as e:
                 logging.warning("Couldn't get value from register {} in table {}".format(register['address'],
                                 register.get('table', 'holding')))
+                logging.debug(e)
                 continue
             # Filter the value through the mask, if present.
             if 'mask' in register:
@@ -241,8 +245,32 @@ class mqtt_interface():
     def _load_modbus_config(self, path):
         yaml = YAML(typ='safe')
         result = yaml.load(open(path, 'r').read())
-        registers = [register for register in result['registers'] if 'pub_topic' in register]
+        if 'options' not in result:
+          result['options'] = { 'unit': 0x01 }
+        self.address_offset = result.get('address_offset', 0)
+        if 'registers' in result:
+          registers = [register for register in result['registers'] if 'pub_topic' in register]
+          for register in registers:
+            register['address'] += self.address_offset
+        elif 'devices' in result:
+          registers = list()
+          for device in result['devices']:
+            unit = device.get('unit', None)
+            pub_topic = device.get('pub_topic', '')
+            # clone register, because its maybe referenced by using templates ...
+            device_registers = [dict(register) for register in device['registers'] if 'pub_topic' in register]
+            address_offset = device.get('address_offset', self.address_offset)
+            
+            for register in device_registers:
+              if unit is not None:
+                register['unit'] = unit
+              if pub_topic:
+                register['pub_topic'] = '/'.join([pub_topic, register['pub_topic']])
+              register['address'] += address_offset
+            registers += device_registers
+        
         mqtt_interface._validate_registers(registers)
+        self.registers = registers
         return result
 
     def loop_forever(self):
