@@ -60,6 +60,7 @@ class mqtt_interface():
         for register in self.registers:
             self._mb.add_monitor_register(register.get('table', 'holding'), register['address'], register.get('type', 'uint16'))
             register['value'] = None
+        self._mb.prepare()
 
     def modbus_connection_failed(self):
         exit(1)

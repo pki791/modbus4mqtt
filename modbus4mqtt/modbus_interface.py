@@ -35,6 +35,7 @@ class modbus_interface():
             self._word_order = WordOrder.HighLow
 
         self._unit = options.get('unit', 0x01)
+        self._range_batching = options.get('range_batching', False)
         scan_batching = options.get('scan_batching', None)
         if scan_batching is None:
             self._scan_batching = DEFAULT_SCAN_BATCHING
@@ -95,28 +96,53 @@ class modbus_interface():
         for i in range(type_length(type)):
             self._tables[table].add(addr+i)
 
+    def prepare(self):
+      for (table, registers) in self._tables.items():
+        self._tables[table] = sorted(registers)
+    
+    def _get_scan_ranges(self, registers):
+      ranges = [ ]
+      if self._range_batching:
+        offset = -1
+        count = 0
+        for k in registers:
+          if count < self._scan_batching:
+            if offset + count == k:
+              count = count + 1
+              continue
+          if count > 0:
+            ranges.append( ( offset, count ) )
+          offset = k
+          count = 1
+      else:
+        offset = registers[0]
+        count = self._scan_batching
+        while offset+count <= registers[-1]:
+          ranges.append( ( offset, count ) )
+          offset = offset + count
+        count = registers[-1] - offset + 1
+
+      if count > 0:
+        ranges.append( ( offset, count ) )
+
+      return ranges
+
+    
     def poll(self):
         # Polls for the values marked as interesting in self._tables.
-        for table in self._tables:
-            # This batches up modbus reads in chunks of self._scan_batching
-            start = -1
-            scan_batching = len(self._tables[table])
-            if scan_batching > self._scan_batching:
-              scan_batching = self._scan_batching 
-              
-            for k in sorted(self._tables[table]):
-                group = int(k) - int(k) % scan_batching
-                if (start < group):
-                    try:
-                        values = self._scan_value_range(table, group, scan_batching)
-                        for x in range(0, scan_batching):
-                            key = group + x
-                            self._values[table][key] = values[x]
-                        # Avoid back-to-back read operations that could overwhelm some modbus devices.
-                        sleep(DEFAULT_READ_SLEEP_S)
-                    except ValueError as e:
-                        logging.exception("{}".format(e))
-                    start = group + scan_batching - 1
+        for (table, registers) in self._tables.items():
+            ranges = self._get_scan_ranges(registers)
+            
+            for ( group, count ) in ranges:
+              try:
+                  values = self._scan_value_range(table, group, count)
+                  for x in range(0, count):
+                      key = group + x
+                      self._values[table][key] = values[x]
+                  # Avoid back-to-back read operations that could overwhelm some modbus devices.
+                  sleep(DEFAULT_READ_SLEEP_S)
+              except ValueError as e:
+                  logging.exception("{}".format(e))
         self._process_writes()
 
     def get_value(self, table, addr, type='uint16'):

@@ -6,7 +6,8 @@ pub_topic: pzem-004t
 options:
   unit: 0x2c
   word_order: lowhigh
-  scan_batching: 10
+  scan_batching: 12
+  range_batching: True
 registers:
   - pub_topic: "voltage" # Voltage (0.1V)
     address: 0
