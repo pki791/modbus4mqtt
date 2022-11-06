@@ -4,6 +4,7 @@ from time import sleep
 import time
 import json
 import logging
+from copy import deepcopy
 from ruamel.yaml import YAML
 import click
 import paho.mqtt.client as mqtt
@@ -278,6 +279,8 @@ class mqtt_interface():
     def _load_modbus_config(self, path):
         yaml = YAML(typ='safe')
         result = yaml.load(open(path, 'r').read())
+        # make a deep copy to materialize any yaml aliases
+        result = deepcopy(result)
         if 'options' not in result:
           result['options'] = { 'unit': 0x01 }
         self.address_offset = result.get('address_offset', 0)
@@ -290,8 +293,7 @@ class mqtt_interface():
           for device in result['devices']:
             unit = device.get('unit', None)
             pub_topic = device.get('pub_topic', '')
-            # clone register, because its maybe referenced by using templates ...
-            device_registers = [dict(register) for register in device['registers'] if 'pub_topic' in register]
+            device_registers = [register for register in device['registers'] if 'pub_topic' in register]
             address_offset = device.get('address_offset', self.address_offset)
             
             for register in device_registers:
