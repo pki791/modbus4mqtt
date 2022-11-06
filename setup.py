@@ -16,6 +16,7 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=['tests']),
     install_requires=[
         'ruamel.yaml>=0.16.12',
+        'ccorp-yaml-include-relative-path',
         'paho-mqtt>=1.5.0',
         'pymodbus>=2.3.0',
         'click>=6.7',

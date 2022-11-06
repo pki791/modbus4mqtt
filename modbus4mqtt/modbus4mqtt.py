@@ -5,7 +5,7 @@ import time
 import json
 import logging
 from copy import deepcopy
-from ruamel.yaml import YAML
+from ccorp.ruamel.yaml.include import YAML
 import click
 import paho.mqtt.client as mqtt
 
@@ -328,7 +328,7 @@ class mqtt_interface():
               help='The password to authenticate to the MQTT server.', show_default=True)
 @click.option('--mqtt_topic_prefix', default='wgw12/energy/pzem-004t',
               help='A prefix for published MQTT topics.', show_default=True)
-@click.option('--config', default='./PZEM-004t.yaml',
+@click.option('--config', default='./modbus4mqtt.yaml',
               help='The YAML config file for your modbus device.', show_default=True)
 @click.option('--use_tls', default=False,
               help='Configure network encryption and authentication options. Enables SSL/TLS.', show_default=True)

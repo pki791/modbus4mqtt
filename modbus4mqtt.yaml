@@ -1,0 +1,24 @@
+!exclude includes:
+- !include modbus4mqtt/pzem-004t.yaml
+# - !include modbus4mqtt/orno-we516.yaml
+
+#url: serial://ttyUSB1
+url: serial://com5
+update_rate: 3
+pub_topic: pzem-004t
+options:
+  unit: 0x2c
+  word_order: lowhigh
+  scan_batching: 12
+  range_batching: True
+  
+devices:
+  - << : *PZEM_004T
+    unit: 0x2c
+    pub_topic: pzem-004t-001
+  - << : *PZEM_004T_STATUS10
+    unit: 0x2c
+    pub_topic: pzem-004t-001
+#  - << : *PZEM_004T
+#   unit: 0x48
+#    pub_topic: pzem-004t-002

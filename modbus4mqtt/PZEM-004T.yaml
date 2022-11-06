@@ -1,14 +1,5 @@
-#url: serial://ttyUSB1
-url: serial://com5
-update_rate: 3
-pub_topic: pzem-004t
-options:
-  unit: 0x2c
-  word_order: lowhigh
-  scan_batching: 12
-  range_batching: True
 templates:
-  - pzem_004t: &PZEM_004T
+  pzem_004t: &PZEM_004T
       pub_topic: pzem-004t
       registers:
         - &PZEM_004T_Voltage
@@ -65,7 +56,7 @@ templates:
         - pub_topic: "Unit" # Device ID
           address: 2
           table: 'holding'
-  - pzem_004t: &PZEM_004T_STATUS10
+  pzem_004t_status10: &PZEM_004T_STATUS10
       pub_topic: pzem-004t
       registers:
         - pub_topic: "STATUS10"
@@ -89,19 +80,3 @@ templates:
         - <<: *PZEM_004T_Current
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.Current'
-  
-devices:
-  - << : *PZEM_004T
-    unit: 0x2c
-    pub_topic: pzem-004t-001
-  - << : *PZEM_004T_STATUS10
-    unit: 0x2c
-    pub_topic: pzem-004t-001
-#  - << : *PZEM_004T
-#   unit: 0x48
-#    pub_topic: pzem-004t-002
-  - unit: 0x2c
-    pub_topic: pzem-004t-001
-    registers:
-      - pub_topic: "Time"
-        special: 'time'

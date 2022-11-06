@@ -1,5 +1,6 @@
 setuptools
 ruamel.yaml>=0.16.12
+ccorp-yaml-include-relative-path
 click
 paho-mqtt
 pymodbus
