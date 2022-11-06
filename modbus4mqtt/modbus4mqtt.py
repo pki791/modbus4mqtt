@@ -96,6 +96,7 @@ class mqtt_interface():
         # This is used to store values that are published as JSON messages rather than individual values
         json_messages = {}
         json_messages_retain = {}
+        json_messages_changed = {}
 
         for register in self._get_registers_with('pub_topic'):
             try:
@@ -116,12 +117,11 @@ class mqtt_interface():
             value *= register.get('scale', 1)
             # Clamp the number of decimal points
             value = round(value, MAX_DECIMAL_POINTS)
-            changed = False
+            changed = not register.get('pub_only_on_change', True)
             if value != register['value']:
                 changed = True
                 register['value'] = value
-            if not changed and register.get('pub_only_on_change', True):
-                continue
+
             # Map from the raw number back to the human-readable form
             if 'value_map' in register:
                 if value in register['value_map'].values():
@@ -132,15 +132,19 @@ class mqtt_interface():
                 if register['pub_topic'] not in json_messages:
                     json_messages[register['pub_topic']] = {}
                     json_messages_retain[register['pub_topic']] = False
+                    json_messages_changed[register['pub_topic']] = changed
                 json_messages[register['pub_topic']][register['json_key']] = value
+                if changed:
+                  json_messages_changed[register['pub_topic']] = True
                 if 'retain' in register:
                     json_messages_retain[register['pub_topic']] = register['retain']
-            else:
+            elif changed:
                 retain = register.get('retain', False)
                 self._mqtt_client.publish(self.prefix+register['pub_topic'], value, retain=retain)
 
         # Transmit the queued JSON messages.
         for topic, message in json_messages.items():
+          if json_messages_changed[topic]:
             m = json.dumps(message, sort_keys=True)
             self._mqtt_client.publish(self.prefix+topic, m, retain=json_messages_retain[topic])
 
