@@ -16,6 +16,25 @@ class WordOrder(Enum):
     HighLow = 1
     LowHigh = 2
 
+class DeviceUnit():
+  def __init__(self, unit, table):
+    self.unit = unit
+    self.table = table
+  
+  @classmethod
+  def get_unit(cls, instance, unit):
+    if isinstance(instance, DeviceUnit):
+      return instance.unit
+    return unit
+  
+  @classmethod
+  def get_table(cls, instance):
+    if isinstance(instance, DeviceUnit):
+      return instance.table
+    if isinstance(instance, str):
+      return instance
+    return instance[1]
+    
 class modbus_interface():
 
     def __init__(self, url, scan_batching=None, word_order=WordOrder.HighLow, options={}):
@@ -97,8 +116,9 @@ class modbus_interface():
             self._tables[table].add(addr+i)
 
     def prepare(self):
+      self._registers = dict()
       for (table, registers) in self._tables.items():
-        self._tables[table] = sorted(registers)
+        self._registers[table] = sorted(registers)
     
     def _get_scan_ranges(self, registers):
       ranges = [ ]
@@ -129,8 +149,8 @@ class modbus_interface():
 
     
     def poll(self):
-        # Polls for the values marked as interesting in self._tables.
-        for (table, registers) in self._tables.items():
+        # Polls for the values marked as interesting in self._registers.
+        for (table, registers) in self._registers.items():
             ranges = self._get_scan_ranges(registers)
             
             for ( group, count ) in ranges:
@@ -164,7 +184,7 @@ class modbus_interface():
         return value
 
     def set_value(self, table, addr, value, mask=0xFFFF, type='uint16'):
-        if table != 'holding':
+        if DeviceUnit.get_table(table) != 'holding':
             # I'm not sure if this is true for all devices. I might support writing to coils later,
             # so leave this door open.
             raise ValueError("Can only set values in the holding table.")
@@ -178,7 +198,7 @@ class modbus_interface():
                 value = _convert_from_bytes_to_type(bytes_to_write[i*2:i*2+2], 'uint16')
             else:
                 value = _convert_from_bytes_to_type(bytes_to_write[(type_len-i-1)*2:(type_len-i-1)*2+2], 'uint16')
-            self._planned_writes.put((addr+i, value, mask))
+            self._planned_writes.put((table, addr+i, value, mask))
 
         self._process_writes()
 
@@ -193,9 +213,10 @@ class modbus_interface():
         try:
             self._writing = True
             while not self._planned_writes.empty() and (time() - write_start_time) < max_block_s:
-                addr, value, mask = self._planned_writes.get()
+                device_unit, addr, value, mask = self._planned_writes.get()
+                unit = DeviceUnit.get_unit(device_unit, self._unit)
                 if mask == 0xFFFF:
-                    self._mb.write_register(addr, value, unit=self._unit)
+                    self._mb.write_register(addr, value, unit=unit)
                 else:
                     # https://pymodbus.readthedocs.io/en/latest/source/library/pymodbus.client.html?highlight=mask_write_register#pymodbus.client.common.ModbusClientMixin.mask_write_register
                     # https://www.mathworks.com/help/instrument/modify-the-contents-of-a-holding-register-using-a-mask-write.html
@@ -207,11 +228,11 @@ class modbus_interface():
                     # I suspect it's a different modbus opcode that tries to do clever things that my device doesn't support.
                     # result = self._mb.mask_write_register(address=addr, and_mask=(1<<16)-1-mask, or_mask=value, unit=0x01)
                     # print("Result: {}".format(result))
-                    old_value = self._scan_value_range('holding', addr, 1)[0]
+                    old_value = self._scan_value_range(device_unit, addr, 1)[0]
                     and_mask = (1<<16)-1-mask
                     or_mask = value
                     new_value = (old_value & and_mask) | (or_mask & (mask))
-                    self._mb.write_register(addr, new_value, unit=0x01)
+                    self._mb.write_register(addr, new_value, unit=unit)
                 sleep(DEFAULT_WRITE_SLEEP_S)
         except Exception as e:
             # BUG catch only the specific exception that means pymodbus failed to write to a register
@@ -220,12 +241,14 @@ class modbus_interface():
         finally:
             self._writing = False
 
-    def _scan_value_range(self, table, start, count):
+    def _scan_value_range(self, device_unit, start, count):
         result = None
+        table = DeviceUnit.get_table(device_unit)
+        unit = DeviceUnit.get_unit(device_unit, self._unit)
         if table == 'input':
-            result = self._mb.read_input_registers(start, count, unit=self._unit)
+            result = self._mb.read_input_registers(start, count, unit=unit)
         elif table == 'holding':
-            result = self._mb.read_holding_registers(start, count, unit=self._unit)
+            result = self._mb.read_holding_registers(start, count, unit=unit)
         try:
             return result.registers
         except:
