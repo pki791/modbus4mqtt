@@ -11,16 +11,19 @@ templates:
   - pzem_004t: &PZEM_004T
       pub_topic: pzem-004t
       registers:
-        - pub_topic: "Voltage" # Voltage (0.1V)
+        - &PZEM_004T_Voltage
+          pub_topic: "Voltage" # Voltage (0.1V)
           address: 0
           table: 'input'
           scale: 0.1
-        - pub_topic: "Current" # Current (0.001A)
+        - &PZEM_004T_Current
+          pub_topic: "Current" # Current (0.001A)
           address: 1
           table: 'input'
           type: uint32
           scale: 0.001
-        - pub_topic: "Power" # Power (0.1W)
+        - &PZEM_004T_Power
+          pub_topic: "Power" # Power (0.1W)
           address: 3
           table: 'input'
           type: uint32
@@ -35,15 +38,18 @@ templates:
         #  table: 'input'
         #  type: uint32
         #  scale: 0.1
-        - pub_topic: "Energy" # Energy (1Wh)
+        - &PZEM_004T_Energy
+          pub_topic: "Energy" # Energy (1Wh)
           address: 5
           table: 'input'
           type: uint32
-        - pub_topic: "Frequency" # Power (0.1Hz)
+        - &PZEM_004T_Frequency
+          pub_topic: "Frequency" # Power (0.1Hz)
           address: 7
           table: 'input'
           scale: 0.1
-        - pub_topic: "Factor" # Power factor (0.001)
+        - &PZEM_004T_Factor
+          pub_topic: "Factor" # Power factor (0.001)
           address: 8
           table: 'input'
           scale: 0.001
@@ -59,6 +65,27 @@ templates:
         - pub_topic: "Unit" # Device ID
           address: 2
           table: 'holding'
+        - pub_topic: "STATUS10"
+          json_key: 'StatusSNS.Time'
+          special: 'time'
+        - pub_topic: "STATUS10"
+          json_key: 'StatusSNS.Epoch'
+          special: 'epoch'
+        - <<: *PZEM_004T_Energy
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Total'
+        - <<: *PZEM_004T_Power
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Power'
+        - <<: *PZEM_004T_Factor
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Factor'
+        - <<: *PZEM_004T_Voltage
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Voltage'
+        - <<: *PZEM_004T_Current
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Current'
   
 devices:
   - << : *PZEM_004T
@@ -67,3 +94,8 @@ devices:
 #  - << : *PZEM_004T
 #   unit: 0x48
 #    pub_topic: pzem-004t-002
+  - unit: 0x2c
+    pub_topic: pzem-004t-001
+    registers:
+      - pub_topic: "Time"
+        special: 'time'

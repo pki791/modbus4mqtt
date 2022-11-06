@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from time import sleep
+import time
 import json
 import logging
 from ruamel.yaml import YAML
@@ -13,6 +14,15 @@ from . import version
 MAX_DECIMAL_POINTS = 8
 DEFAULT_SCAN_RATE_S = 5
 
+def set_json_message_value(message, json_key, value):
+  target = message
+  json_keys = json_key.split('.')
+  if len(json_keys) > 1:
+    for json_key in json_keys[:-1]:
+      if json_key not in target:
+        target[json_key] = dict()
+      target = target[json_key]
+  target[json_keys[-1]] = value
 
 class mqtt_interface():
     def __init__(self, hostname, port, username, password, config_file, mqtt_topic_prefix,
@@ -34,6 +44,9 @@ class mqtt_interface():
         self.modbus_reconnect_sleep_interval = 5  # Wait this many seconds between modbus connection attempts
 
     def get_DeviceUnit(self, register):
+      device = register.get('device', None)
+      if device:
+        return device
       table = register.get('table', 'holding')
       unit = register.get('unit', None)
       if unit is None:
@@ -61,8 +74,9 @@ class mqtt_interface():
             sleep(self.modbus_reconnect_sleep_interval)
         # Tells the modbus interface about the registers we consider interesting.
         for register in self.registers:
+          if 'address' in register:
             self._mb.add_monitor_register(self.get_DeviceUnit(register), register['address'], register.get('type', 'uint16'))
-            register['value'] = None
+          register['value'] = None
         self._mb.prepare()
 
     def modbus_connection_failed(self):
@@ -99,24 +113,39 @@ class mqtt_interface():
         json_messages_changed = {}
 
         for register in self._get_registers_with('pub_topic'):
-            try:
-                value = self._mb.get_value( self.get_DeviceUnit(register),
-                                            register['address'],
-                                            register.get('type', 'uint16'))
-            except Exception as e:
-                logging.warning("Couldn't get value from register {} in table {}".format(register['address'],
-                                register.get('table', 'holding')))
-                logging.debug(e)
-                continue
-            # Filter the value through the mask, if present.
-            if 'mask' in register:
-                # masks only make sense for uint
-                if register.get('type', 'uint16') in ['uint16', 'uint32', 'uint64']:
-                    value &= register.get('mask')
-            # Scale the value, if required.
-            value *= register.get('scale', 1)
-            # Clamp the number of decimal points
-            value = round(value, MAX_DECIMAL_POINTS)
+            special = register.get('special', None)
+            if special:
+              if special == 'epoch':
+                value = int( time.time() )
+              elif special == 'time':
+                value = time.localtime()
+                format = register.get('format', '%c')
+                if format:
+                  value = time.strftime(format, value)
+              else:
+                  logging.warning("Unknown special {}".format(special))
+                  continue
+            else:
+              try:
+                  value = self._mb.get_value( self.get_DeviceUnit(register),
+                                              register['address'],
+                                              register.get('type', 'uint16'))
+              except Exception as e:
+                  logging.warning("Couldn't get value from register {} in table {}".format(register['address'],
+                                  register.get('table', 'holding')))
+                  logging.debug(e)
+                  continue
+            
+              # Filter the value through the mask, if present.
+              if 'mask' in register:
+                  # masks only make sense for uint
+                  if register.get('type', 'uint16') in ['uint16', 'uint32', 'uint64']:
+                      value &= register.get('mask')
+              # Scale the value, if required.
+              value *= register.get('scale', 1)
+              # Clamp the number of decimal points
+              value = round(value, MAX_DECIMAL_POINTS)
+            
             changed = not register.get('pub_only_on_change', True)
             if value != register['value']:
                 changed = True
@@ -133,8 +162,8 @@ class mqtt_interface():
                     json_messages[register['pub_topic']] = {}
                     json_messages_retain[register['pub_topic']] = False
                     json_messages_changed[register['pub_topic']] = changed
-                json_messages[register['pub_topic']][register['json_key']] = value
-                if changed:
+                set_json_message_value(json_messages[register['pub_topic']], register['json_key'], value)
+                if changed and not register.get('json_ignore_changed', False):
                   json_messages_changed[register['pub_topic']] = True
                 if 'retain' in register:
                     json_messages_retain[register['pub_topic']] = register['retain']
@@ -270,7 +299,9 @@ class mqtt_interface():
                 register['unit'] = unit
               if pub_topic:
                 register['pub_topic'] = '/'.join([pub_topic, register['pub_topic']])
-              register['address'] += address_offset
+              if 'address' in register:
+                register['address'] += address_offset
+              register['device'] = self.get_DeviceUnit(register)
             registers += device_registers
         
         mqtt_interface._validate_registers(registers)
