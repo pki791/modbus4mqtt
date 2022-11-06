@@ -65,6 +65,9 @@ templates:
         - pub_topic: "Unit" # Device ID
           address: 2
           table: 'holding'
+  - pzem_004t: &PZEM_004T_STATUS10
+      pub_topic: pzem-004t
+      registers:
         - pub_topic: "STATUS10"
           json_key: 'StatusSNS.Time'
           special: 'time'
@@ -89,6 +92,9 @@ templates:
   
 devices:
   - << : *PZEM_004T
+    unit: 0x2c
+    pub_topic: pzem-004t-001
+  - << : *PZEM_004T_STATUS10
     unit: 0x2c
     pub_topic: pzem-004t-001
 #  - << : *PZEM_004T
