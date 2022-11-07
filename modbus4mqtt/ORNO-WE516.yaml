@@ -1,0 +1,472 @@
+templates:
+  orno-default: &ORNO__DEFAULT
+    table: 'holding'
+  orno-short: &ORNO__SHORT
+    <<: *ORNO__DEFAULT
+  orno-uint: &ORNO__UINT
+    <<: *ORNO__DEFAULT
+    type: uint32
+  orno-float: &ORNO__FLOAT
+    <<: *ORNO__DEFAULT
+    type: float
+  orno-power: &ORNO__POWER
+    <<: *ORNO__FLOAT
+    scale: 0.0001
+
+  orno-we516-info: &ORNO_WE516__INFO
+      pub_topic: orno-we516
+      registers:
+        - &ORNO_WE516-SERIAL
+          <<: *ORNO__UINT
+          pub_topic: "Serial"
+          address: 0x0
+        - &ORNO_WE516-UNIT
+          <<: *ORNO__SHORT
+          pub_topic: "Unit" # Device ID
+          address: 0x2
+        - &ORNO_WE516-BAUD
+          <<: *ORNO__SHORT
+          pub_topic: "BaudRate" # bps
+          address: 0x3
+        - &ORNO_WE516-SW_VERSION
+          <<: *ORNO__FLOAT
+          pub_topic: "SW-Version" #
+          address: 0x4
+        - &ORNO_WE516-HW_VERSION
+          <<: *ORNO__FLOAT
+          pub_topic: "HW-Version" #
+          address: 0x6
+        - &ORNO_WE516-CT_RATE
+          <<: *ORNO__SHORT
+          pub_topic: "CT-Rate" #
+          address: 0x8
+        - &ORNO_WE516-S0_RATE
+          <<: *ORNO__FLOAT
+          pub_topic: "S0-Rate" # imp/kWh
+          address: 0x9
+        - &ORNO_WE516-COMBINED_CODE
+          <<: *ORNO__SHORT
+          pub_topic: "CombinedCode" #
+          address: 0xB
+        - &ORNO_WE516-LCDCYCLETIME
+          <<: *ORNO__SHORT
+          pub_topic: "LcdCycleTime" #
+          address: 0xD
+        - &ORNO_WE516-CRC
+          <<: *ORNO__SHORT
+          pub_topic: "CRC" #
+          address: 0x41
+
+  orno-we516-time: &ORNO_WE516__TIME
+      pub_topic: orno-we516
+      registers:
+        - &ORNO_WE516-TIME
+          <<: *ORNO__DEFAULT
+          pub_topic: "Time" #
+          address: 0x3C
+          type: uint64
+
+  orno-we516-power: &ORNO_WE516__POWER
+      pub_topic: orno-we516
+      registers:
+        - &ORNO_WE516-Frequency
+          <<: *ORNO__FLOAT
+          pub_topic: "Frequency" # Power (0.0001Hz)
+          address: 0x14
+        - &ORNO_WE516-Voltage_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "Voltage/L1" # Voltage (0.0001V)
+          address: 0xE
+        - &ORNO_WE516-Voltage_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "Voltage/L2" # Voltage (0.0001V)
+          address: 0x10
+        - &ORNO_WE516-Voltage_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "Voltage/L3" # Voltage (0.0001V)
+          address: 0x12
+          
+        - &ORNO_WE516-Current_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "Current/L1" # Current (0.0001A)
+          address: 0x16
+        - &ORNO_WE516-Current_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "Current/L2" # Current (0.0001A)
+          address: 0x18
+        - &ORNO_WE516-Current_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "Current/L3" # Current (0.0001A)
+          address: 0x1A
+          
+        - &ORNO_WE516-Power
+          <<: *ORNO__POWER
+          pub_topic: "Power/Total" # Power (kW)
+          address: 0x1C
+        - &ORNO_WE516-Power_L1
+          <<: *ORNO__POWER
+          pub_topic: "Power/L1" # Power (kW)
+          address: 0x1E
+        - &ORNO_WE516-Power_L2
+          <<: *ORNO__POWER
+          pub_topic: "Power/L2" # Power (kW)
+          address: 0x20
+        - &ORNO_WE516-Power_L3
+          <<: *ORNO__POWER
+          pub_topic: "Power/L3" # Power (kW)
+          address: 0x22
+
+        - &ORNO_WE516-ReactivePower
+          <<: *ORNO__POWER
+          pub_topic: "ReactivePower/Total" # Power (kVar)
+          address: 0x24
+        - &ORNO_WE516-ReactivePower_L1
+          <<: *ORNO__POWER
+          pub_topic: "ReactivePower/L1" # Power (kVar)
+          address: 0x26
+        - &ORNO_WE516-ReactivePower_L2
+          <<: *ORNO__POWER
+          pub_topic: "ReactivePower/L2" # Power (kVar)
+          address: 0x28
+        - &ORNO_WE516-ReactivePower_L3
+          <<: *ORNO__POWER
+          pub_topic: "ReactivePower/L3" # Power (kVar)
+          address: 0x2A
+
+        - &ORNO_WE516-ApparentPower
+          <<: *ORNO__POWER
+          pub_topic: "ApparentPower/Total" # Power (kVA)
+          address: 0x2C
+        - &ORNO_WE516-ApparentPower_L1
+          <<: *ORNO__POWER
+          pub_topic: "ApparentPower/L1" # Power (kVA)
+          address: 0x2E
+        - &ORNO_WE516-ApparentPower_L2
+          <<: *ORNO__POWER
+          pub_topic: "ApparentPower/L2" # Power (kVA)
+          address: 0x30
+        - &ORNO_WE516-ApparentPower_L3
+          <<: *ORNO__POWER
+          pub_topic: "ApparentPower/L3" # Power (kVA)
+          address: 0x32
+
+        - &ORNO_WE516-Factor
+          <<: *ORNO__FLOAT
+          pub_topic: "Factor/Total" # Factor (kW)
+          address: 0x34
+        - &ORNO_WE516-Factor_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "Factor/L1" # Factor (kW)
+          address: 0x36
+        - &ORNO_WE516-Factor_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "Factor/L2" # Factor (kW)
+          address: 0x38
+        - &ORNO_WE516-Factor_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "Factor/L3" # Factor (kW)
+          address: 0x3A
+
+  orno-we516-energy: &ORNO_WE516__ENERGY
+      pub_topic: orno-we516
+      registers:
+        - &ORNO_WE516-Energy
+          <<: *ORNO__FLOAT
+          pub_topic: "Energy/Total" # Energy (kW)
+          address: 0x100
+        - &ORNO_WE516-Energy_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "Energy/L1" # Energy (kW)
+          address: 0x102
+        - &ORNO_WE516-Energy_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "Energy/L2" # Energy (kW)
+          address: 0x104
+        - &ORNO_WE516-Energy_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "Energy/L3" # Energy (kW)
+          address: 0x106
+        - &ORNO_WE516-Reactive_Energy
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveEnergy/Total" # Energy (kVarh)
+          address: 0x118
+        - &ORNO_WE516-Reactive_Energy_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveEnergy/L1" # Energy (kVarh)
+          address: 0x11A
+        - &ORNO_WE516-Reactive_Energy_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveEnergy/L2" # Energy (kVarh)
+          address: 0x11C
+        - &ORNO_WE516-Reactive_Energy_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveEnergy/L3" # Energy (kVarh)
+          address: 0x11E
+
+  orno-we516-import: &ORNO_WE516__IMPORT
+      pub_topic: orno-we516
+      registers:
+        - &ORNO_WE516-Import
+          <<: *ORNO__FLOAT
+          pub_topic: "Import/Total" # Import (kWh)
+          address: 0x108
+        - &ORNO_WE516-Import_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "Import/L1" # Import (kWh)
+          address: 0x10A
+        - &ORNO_WE516-Import_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "Import/L2" # Import (kWh)
+          address: 0x10C
+        - &ORNO_WE516-Import_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "Import/L3" # Import (kWh)
+          address: 0x10E
+
+        - &ORNO_WE516-Reactive_Import
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveImport/Total" # Import (kVarh)
+          address: 0x120
+        - &ORNO_WE516-Reactive_Import_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveImport/L1" # Import (kVarh)
+          address: 0x122
+        - &ORNO_WE516-Reactive_Import_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveImport/L2" # Import (kVarh)
+          address: 0x124
+        - &ORNO_WE516-Reactive_Import_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveImport/L3" # Import (kVarh)
+          address: 0x126
+
+  orno-we516-export: &ORNO_WE516__EXPORT
+      pub_topic: orno-we516
+      registers:
+        - &ORNO_WE516-Export
+          <<: *ORNO__FLOAT
+          pub_topic: "Export/Total" # Export (kWh)
+          address: 0x110
+        - &ORNO_WE516-Export_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "Export/L1" # Export (kWh)
+          address: 0x112
+        - &ORNO_WE516-Export_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "Export/L2" # Export (kWh)
+          address: 0x114
+        - &ORNO_WE516-Export_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "Export/L3" # Export (kWh)
+          address: 0x116
+
+        - &ORNO_WE516-Reactive_Export
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveExport/Total" # Export (kVarh)
+          address: 0x128
+        - &ORNO_WE516-Reactive_Export_L1
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveExport/L1" # Export (kVarh)
+          address: 0x12A
+        - &ORNO_WE516-Reactive_Export_L2
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveExport/L2" # Export (kVarh)
+          address: 0x12C
+        - &ORNO_WE516-Reactive_Export_L3
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveExport/L3" # Export (kVarh)
+          address: 0x12E
+
+  orno-we516-t1: &ORNO_WE516__T1
+      pub_topic: orno-we516
+      registers:
+        - &ORNO_WE516-Energy_T1
+          <<: *ORNO__FLOAT
+          pub_topic: "Energy/T1" # T1 (kWh)
+          address: 0x130
+        - &ORNO_WE516-Import_T1
+          <<: *ORNO__FLOAT
+          pub_topic: "Import/T1" # T1 (kWh)
+          address: 0x132
+        - &ORNO_WE516-Export_T1
+          <<: *ORNO__FLOAT
+          pub_topic: "Export/T1" # T1 (kWh)
+          address: 0x134
+        - &ORNO_WE516-ReactiveEnergy_T1
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveEnergy/T1" # T1 (kVarh)
+          address: 0x136
+        - &ORNO_WE516-ReactiveImport_T1
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveImport/T1" # T1 (kVarh)
+          address: 0x138
+        - &ORNO_WE516-ReactiveExport_T1
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveExport/T1" # T1 (kVarh)
+          address: 0x13A
+
+  orno-we516-t2: &ORNO_WE516__T2
+      pub_topic: orno-we516
+      registers:
+        - &ORNO_WE516-Energy_T2
+          <<: *ORNO__FLOAT
+          pub_topic: "Energy/T2" # T2 (kWh)
+          address: 0x13C
+        - &ORNO_WE516-Import_T2
+          <<: *ORNO__FLOAT
+          pub_topic: "Import/T2" # T2 (kWh)
+          address: 0x13E
+        - &ORNO_WE516-Export_T2
+          <<: *ORNO__FLOAT
+          pub_topic: "Export/T2" # T2 (kWh)
+          address: 0x140
+        - &ORNO_WE516-ReactiveEnergy_T2
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveEnergy/T2" # T2 (kVarh)
+          address: 0x142
+        - &ORNO_WE516-ReactiveImport_T2
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveImport/T2" # T2 (kVarh)
+          address: 0x144
+        - &ORNO_WE516-ReactiveExport_T2
+          <<: *ORNO__FLOAT
+          pub_topic: "ReactiveExport/T2" # T2 (kVarh)
+          address: 0x146
+
+  # tasmota STATUSSNS contents:
+  # // single = 0 - Energy.phase_count - xx or [xx,xx] or [xx,xx,xx]
+  # // single = 1 - Energy.voltage_common or Energy.frequency_common - xx
+  # // single = 2 - Sum of Energy.phase_count if SO129 0 - xx or if SO129 1 - [xx,xx,xx]
+  # // single = 5 - single &0x03 = 1 - xx
+  # // single = 6 - single &0x03 = 2 - [xx,xx] - used by tarriff
+  # // single = 7 - single &0x03 = 3 - [xx,xx,xx]
+  # D_JSON_TOTAL 2
+  # D_JSON_TOTAL D_CMND_TARIFF 6
+  # D_JSON_EXPORT_ACTIVE
+  # D_JSON_EXPORT D_CMND_TARIFF 6
+  # D_JSON_POWERUSAGE
+  # D_JSON_APPARENT_POWERUSAGE
+  # D_JSON_REACTIVE_POWERUSAGE
+  # D_JSON_POWERFACTOR
+  # D_JSON_FREQUENCY freq_common
+  # D_JSON_VOLTAGE volts_common
+  # D_JSON_CURRENT 
+  orno-we516-status10: &ORNO_WE516-STATUS10
+      pub_topic: "orno-we516"
+      duplicate_json_key: accept
+      registers:
+        - pub_topic: "STATUS10"
+          json_key: 'StatusSNS.Time'
+          special: 'time'
+        - pub_topic: "STATUS10"
+          json_key: 'StatusSNS.Epoch'
+          special: 'epoch'
+        - <<: *ORNO_WE516-Frequency
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Frequency'
+        - <<: *ORNO_WE516-Voltage_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Voltage'
+        - <<: *ORNO_WE516-Voltage_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Voltage'
+        - <<: *ORNO_WE516-Voltage_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Voltage'
+        - <<: *ORNO_WE516-Current_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Current'
+        - <<: *ORNO_WE516-Current_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Current'
+        - <<: *ORNO_WE516-Current_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Current'
+        # todo: differenciate Total for Option129?
+        - <<: *ORNO_WE516-Energy_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Total'
+        - <<: *ORNO_WE516-Energy_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Total'
+        - <<: *ORNO_WE516-Energy_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Total'
+        - <<: *ORNO_WE516-Import_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ImportActive'
+        - <<: *ORNO_WE516-Import_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ImportActive'
+        - <<: *ORNO_WE516-Import_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ImportActive'
+        - <<: *ORNO_WE516-Export_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ExportActive'
+        - <<: *ORNO_WE516-Export_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ExportActive'
+        - <<: *ORNO_WE516-Export_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ExportActive'
+        - <<: *ORNO_WE516-Power_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Power'
+        - <<: *ORNO_WE516-Power_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Power'
+        - <<: *ORNO_WE516-Power_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Power'
+        - <<: *ORNO_WE516-ApparentPower_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ApparentPower'
+        - <<: *ORNO_WE516-ApparentPower_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ApparentPower'
+        - <<: *ORNO_WE516-ApparentPower_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ApparentPower'
+        - <<: *ORNO_WE516-ReactivePower_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ReactivePower'
+        - <<: *ORNO_WE516-ReactivePower_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ReactivePower'
+        - <<: *ORNO_WE516-ReactivePower_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ReactivePower'
+        - <<: *ORNO_WE516-Factor_L1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Factor'
+        - <<: *ORNO_WE516-Factor_L2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Factor'
+        - <<: *ORNO_WE516-Factor_L3
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.Factor'
+
+  orno-we516-status10-tariff: &ORNO_WE516-STATUS10_TARIFF
+      pub_topic: "orno-we516"
+      duplicate_json_key: accept
+      registers:
+        - <<: *ORNO_WE516-Energy_T1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.TotalTariff'
+        - <<: *ORNO_WE516-Energy_T2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.TotalTariff'
+        - <<: *ORNO_WE516-Import_T1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ImportTariff'
+        - <<: *ORNO_WE516-Import_T2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ImportTariff'
+        - <<: *ORNO_WE516-Export_T1
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ExportTariff'
+        - <<: *ORNO_WE516-Export_T2
+          pub_topic: "STATUS10"
+          json_key: 'StatusSNS.ENERGY.ExportTariff'
+          

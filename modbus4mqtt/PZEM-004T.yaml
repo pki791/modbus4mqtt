@@ -1,62 +1,58 @@
 templates:
-  pzem_004t: &PZEM_004T
+  pzem_004t-info: &PZEM_004T__INFO
       pub_topic: pzem-004t
       registers:
-        - &PZEM_004T_Voltage
+        - &PZEM_004T-THRESHOLD
+          pub_topic: "AlarmThreshold" # Alarm threshold (1W)
+          address: 1
+          table: 'holding'
+        - &PZEM_004T-UNIT
+          pub_topic: "Unit" # Device ID
+          address: 2
+          table: 'holding'
+  pzem_004t-energy: &PZEM_004T__ENERGY
+      pub_topic: pzem-004t
+      registers:
+        - &PZEM_004T-Voltage
           pub_topic: "Voltage" # Voltage (0.1V)
           address: 0
           table: 'input'
           scale: 0.1
-        - &PZEM_004T_Current
+        - &PZEM_004T-Current
           pub_topic: "Current" # Current (0.001A)
           address: 1
           table: 'input'
           type: uint32
           scale: 0.001
-        - &PZEM_004T_Power
+        - &PZEM_004T-Power
           pub_topic: "Power" # Power (0.1W)
           address: 3
           table: 'input'
           type: uint32
           scale: 0.1
-        #- pub_topic: "ApparentPower" # Power (0.1W)
-        #  address: 3
-        #  table: 'input'
-        #  type: uint32
-        #  scale: 0.1
-        #- pub_topic: "ReactivePower" # Power (0.1W)
-        #  address: 3
-        #  table: 'input'
-        #  type: uint32
-        #  scale: 0.1
-        - &PZEM_004T_Energy
+        - &PZEM_004T-Energy
           pub_topic: "Energy" # Energy (1Wh)
           address: 5
           table: 'input'
           type: uint32
-        - &PZEM_004T_Frequency
+        - &PZEM_004T-Frequency
           pub_topic: "Frequency" # Power (0.1Hz)
           address: 7
           table: 'input'
           scale: 0.1
-        - &PZEM_004T_Factor
+        - &PZEM_004T-Factor
           pub_topic: "Factor" # Power factor (0.001)
           address: 8
           table: 'input'
           scale: 0.001
-        - pub_topic: "Alarm" # Alarm status
+        - &PZEM_004T-Alarm
+          pub_topic: "Alarm" # Alarm status
           address: 9
           table: 'input'
           value_map:
             yes: 0xFFFF
             no: 0
-        - pub_topic: "AlarmThreshold" # Alarm threshold (1W)
-          address: 1
-          table: 'holding'
-        - pub_topic: "Unit" # Device ID
-          address: 2
-          table: 'holding'
-  pzem_004t_status10: &PZEM_004T_STATUS10
+  pzem_004t-status10: &PZEM_004T__STATUS10
       pub_topic: pzem-004t
       registers:
         - pub_topic: "STATUS10"
@@ -65,18 +61,32 @@ templates:
         - pub_topic: "STATUS10"
           json_key: 'StatusSNS.Epoch'
           special: 'epoch'
-        - <<: *PZEM_004T_Energy
+        - <<: *PZEM_004T-Energy
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.Total'
-        - <<: *PZEM_004T_Power
+        - <<: *PZEM_004T-Power
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.Power'
-        - <<: *PZEM_004T_Factor
+        #- pub_topic: "ApparentPower" # Apparent power (0.1VA)
+        #  address: 3
+        #  table: 'input'
+        #  type: uint32
+        #  scale: 0.1
+        #  pub_topic: "STATUS10"
+        #  json_key: 'StatusSNS.ENERGY.ApparentPower'
+        #- pub_topic: "ReactivePower" # Reactive power (0.1var)
+        #  address: 3
+        #  table: 'input'
+        #  type: uint32
+        #  scale: 0.1
+        #  pub_topic: "STATUS10"
+        #  json_key: 'StatusSNS.ENERGY.ReactivePower'
+        - <<: *PZEM_004T-Factor
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.Factor'
-        - <<: *PZEM_004T_Voltage
+        - <<: *PZEM_004T-Voltage
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.Voltage'
-        - <<: *PZEM_004T_Current
+        - <<: *PZEM_004T-Current
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.Current'

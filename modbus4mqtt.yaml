@@ -1,6 +1,6 @@
 !exclude includes:
-- !include modbus4mqtt/pzem-004t.yaml
-# - !include modbus4mqtt/orno-we516.yaml
+- !include modbus4mqtt/PZEM-004T.yaml
+- !include modbus4mqtt/ORNO-WE516.yaml
 
 #url: serial://ttyUSB1
 url: serial://com5
@@ -13,12 +13,12 @@ options:
   range_batching: True
   
 devices:
-  - << : *PZEM_004T
+  - << : *PZEM_004T__ENERGY
     unit: 0x2c
     pub_topic: pzem-004t-001
-  - << : *PZEM_004T_STATUS10
+  - << : *PZEM_004T__STATUS10
     unit: 0x2c
     pub_topic: pzem-004t-001
 #  - << : *PZEM_004T
-#   unit: 0x48
+#    unit: 0x48
 #    pub_topic: pzem-004t-002

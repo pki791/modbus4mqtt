@@ -23,6 +23,13 @@ def set_json_message_value(message, json_key, value):
       if json_key not in target:
         target[json_key] = dict()
       target = target[json_key]
+  
+  old = target.get(json_keys[-1], None)
+  if old is not None:
+    if not isinstance(old, list):
+      old = [ old ]
+    old.append(value)
+    value = old
   target[json_keys[-1]] = value
 
 class mqtt_interface():
@@ -232,7 +239,7 @@ class mqtt_interface():
 
     # This throws ValueError exceptions if the imported registers are invalid
     @staticmethod
-    def _validate_registers(registers):
+    def _validate_registers(registers, duplicate_json_key):
         all_pub_topics = set()
         duplicate_pub_topics = set()
         # Key: shared pub_topics, value: list of json_keys
@@ -264,12 +271,18 @@ class mqtt_interface():
                                      "json_key field. Registers that share a pub_topic must also have a unique "
                                      "json_key.".format(register['pub_topic']))
                 if register['json_key'] in duplicate_json_keys[register['pub_topic']]:
+                  if duplicate_json_key == 'error':
                     raise ValueError("Bad YAML configuration. pub_topic '{}' duplicated across registers with a "
                                      "duplicated json_key field. Registers that share a pub_topic must also have "
                                      "a unique json_key.".format(register['pub_topic']))
+                  if duplicate_json_key == 'warn':
+                    logging.warning("Bogus YAML configuration. pub_topic '{}' duplicated across registers with a "
+                                    "duplicated json_key field. Registers that share a pub_topic should have "
+                                    "a unique json_key. Use duplicate_json_key to configure behavior.".format(register['pub_topic']))
                 duplicate_json_keys[register['pub_topic']] += [register['json_key']]
                 if 'retain' in register:
                     retain_setting[register['pub_topic']].add(register['retain'])
+
         # Check that there are no disagreements as to whether this pub_topic should be retained or not.
         for topic, retain_set in retain_setting.items():
             if len(retain_set) > 1:
@@ -295,6 +308,7 @@ class mqtt_interface():
             pub_topic = device.get('pub_topic', '')
             device_registers = [register for register in device['registers'] if 'pub_topic' in register]
             address_offset = device.get('address_offset', self.address_offset)
+            duplicate_json_key = device.get('duplicate_json_key', 'warn')
             
             for register in device_registers:
               if unit is not None:
@@ -304,9 +318,10 @@ class mqtt_interface():
               if 'address' in register:
                 register['address'] += address_offset
               register['device'] = self.get_DeviceUnit(register)
+            mqtt_interface._validate_registers(device_registers, duplicate_json_key)
             registers += device_registers
         
-        mqtt_interface._validate_registers(registers)
+        mqtt_interface._validate_registers(registers, 'ignore')
         self.registers = registers
         return result
 

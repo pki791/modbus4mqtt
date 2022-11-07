@@ -5,6 +5,8 @@ import logging
 from queue import Queue
 from urllib.parse import urlparse, parse_qs
 from pymodbus import exceptions
+from pymodbus.payload import BinaryPayloadDecoder
+from pymodbus.constants import Endian
 
 DEFAULT_SCAN_BATCHING = 100
 MIN_SCAN_BATCHING = 1
@@ -266,7 +268,7 @@ def type_length(type):
     # Note: Each address provides 2 bytes of data.
     if type in ['int16', 'uint16']:
         return 1
-    elif type in ['int32', 'uint32']:
+    elif type in ['int32', 'uint32', 'float']:
         return 2
     elif type in ['int64', 'uint64']:
         return 4
@@ -282,12 +284,23 @@ def type_signed(type):
 
 def _convert_from_bytes_to_type(value, type):
     type = type.strip().lower()
-    signed = type_signed(type)
-    return int.from_bytes(value,byteorder='big',signed=signed)
+    if type == 'float':
+      endian = Endian.Little if self._word_order == LowHigh else Endian.Big
+      decoder = BinaryPayloadDecoder.fromRegisters(value, wordorder=endian)
+      return decoder.decode_32bit_float()
+    else:
+      signed = type_signed(type)
+      return int.from_bytes(value,byteorder='big',signed=signed)
 
 def _convert_from_type_to_bytes(value, type):
     type = type.strip().lower()
-    signed = type_signed(type)
-    # This can throw an OverflowError in various conditons. This will usually
-    # percolate upwards and spit out an exception from on_message.
-    return int(value).to_bytes(type_length(type)*2,byteorder='big',signed=signed)
+    if type == 'float':
+      endian = Endian.Little if self._word_order == LowHigh else Endian.Big
+      encoder = BinaryPayloadBuilder(wordorder=endian)
+      encoder.add_32bit_float(value)
+      return encoder.build()
+    else:
+      signed = type_signed(type)
+      # This can throw an OverflowError in various conditons. This will usually
+      # percolate upwards and spit out an exception from on_message.
+      return int(value).to_bytes(type_length(type)*2,byteorder='big',signed=signed)
