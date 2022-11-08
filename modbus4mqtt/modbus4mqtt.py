@@ -4,7 +4,7 @@ from time import sleep
 import time
 import json
 import logging
-from copy import deepcopy
+from collections import defaultdict
 from ccorp.ruamel.yaml.include import YAML
 import click
 import paho.mqtt.client as mqtt
@@ -33,6 +33,7 @@ def set_json_message_value(message, json_key, value):
   target[json_keys[-1]] = value
 
 class mqtt_interface():
+    config = { }
     def __init__(self, hostname, port, username, password, config_file, mqtt_topic_prefix,
                  use_tls=True, insecure=False, cafile=None, cert=None, key=None):
         self.hostname = hostname
@@ -51,14 +52,16 @@ class mqtt_interface():
         self.modbus_connect_retries = -1  # Retry forever by default
         self.modbus_reconnect_sleep_interval = 5  # Wait this many seconds between modbus connection attempts
 
-    def get_DeviceUnit(self, register):
+    def get_DeviceUnit(self, register, unit=None):
       device = register.get('device', None)
       if device:
         return device
       table = register.get('table', 'holding')
-      unit = register.get('unit', None)
+      unit = register.get('unit', unit)
       if unit is None:
-        unit = self.config['options'].get('unit', 0x01)
+        unit = 0x01
+        if 'options' in self.config:
+          unit = self.config['options'].get('unit', unit)
       return modbus_interface.DeviceUnit(table=table, unit=unit)
     
     def connect(self):
@@ -292,21 +295,22 @@ class mqtt_interface():
     def _load_modbus_config(self, path):
         yaml = YAML(typ='safe')
         result = yaml.load(open(path, 'r').read())
-        # make a deep copy to materialize any yaml aliases
-        result = deepcopy(result)
         if 'options' not in result:
           result['options'] = { 'unit': 0x01 }
         self.address_offset = result.get('address_offset', 0)
         if 'registers' in result:
-          registers = [register for register in result['registers'] if 'pub_topic' in register]
+          # make copies of the register, to materialize all yaml aliases in each register
+          registers = [dict(register) for register in result['registers'] if 'pub_topic' in register]
           for register in registers:
             register['address'] += self.address_offset
         elif 'devices' in result:
           registers = list()
           for device in result['devices']:
+            # make copies of the register, to materialize all yaml aliases in each register
+            device_registers = [dict(register) for register in device['registers'] if 'pub_topic' in register]
+
             unit = device.get('unit', None)
             pub_topic = device.get('pub_topic', '')
-            device_registers = [register for register in device['registers'] if 'pub_topic' in register]
             address_offset = device.get('address_offset', self.address_offset)
             duplicate_json_key = device.get('duplicate_json_key', 'warn')
             
@@ -317,7 +321,7 @@ class mqtt_interface():
                 register['pub_topic'] = '/'.join([pub_topic, register['pub_topic']])
               if 'address' in register:
                 register['address'] += address_offset
-              register['device'] = self.get_DeviceUnit(register)
+              register['device'] = self.get_DeviceUnit(register, unit)
             mqtt_interface._validate_registers(device_registers, duplicate_json_key)
             registers += device_registers
         

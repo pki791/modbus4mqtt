@@ -7,18 +7,22 @@ url: serial://com5
 update_rate: 3
 pub_topic: pzem-004t
 options:
-  unit: 0x2c
   word_order: lowhigh
   scan_batching: 12
   range_batching: True
-  
+units:
+  - &UNIT_0x2C
+    unit: 0x2c
+    pub_topic: pzem-001
+  - &UNIT_0x48
+    unit: 0x48
+    pub_topic: pzem-002
 devices:
-  - << : *PZEM_004T__ENERGY
-    unit: 0x2c
-    pub_topic: pzem-004t-001
-  - << : *PZEM_004T__STATUS10
-    unit: 0x2c
-    pub_topic: pzem-004t-001
-#  - << : *PZEM_004T
-#    unit: 0x48
-#    pub_topic: pzem-004t-002
+  - << : [ *UNIT_0x48, *PZEM_004T__INFO ]
+  - << : [ *UNIT_0x48, *PZEM_004T__ENERGY ]
+  - << : [ *UNIT_0x48, *PZEM_004T__STATUS10 ]
+    
+  - << : [ *UNIT_0x2C, *PZEM_004T__INFO ]
+  - << : [ *UNIT_0x2C, *PZEM_004T__ENERGY ]
+  - << : [ *UNIT_0x2C, *PZEM_004T__STATUS10 ]
+    
