@@ -1,6 +1,6 @@
 from time import time, sleep
 from enum import Enum
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import logging
 from queue import Queue
 from urllib.parse import urlparse, parse_qs
@@ -43,10 +43,10 @@ class modbus_interface():
         self._url = urlparse(url)
         # This is a dict of sets. Each key represents one table of modbus registers.
         # At the moment it has 'input' and 'holding'
-        self._tables = { }
+        self._tables = defaultdict(set)
 
         # This is a dicts of dicts. These hold the current values of the interesting registers
-        self._values = { }
+        self._values = defaultdict(dict)
 
         self._planned_writes = Queue()
         self._writing = False
@@ -113,9 +113,9 @@ class modbus_interface():
         table = DeviceUnit.get_table(device_unit)
         if table not in VALID_TABLES:
           raise ValueError("Unsupported table type {}. Please only use: {}".format(table, VALID_TABLES))
-        if device_unit not in self._tables:
-          self._tables[device_unit] = set()
-          self._values[device_unit] = dict()
+        # initialize default values ...
+        self._tables[device_unit]
+        self._values[device_unit]
         
         # Register enough sequential addresses to fill the size of the register type.
         # Note: Each address provides 2 bytes of data.
