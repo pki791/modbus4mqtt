@@ -51,6 +51,8 @@ class mqtt_interface():
         self.prefix = mqtt_topic_prefix
         self.modbus_connect_retries = -1  # Retry forever by default
         self.modbus_reconnect_sleep_interval = 5  # Wait this many seconds between modbus connection attempts
+        
+        self._errors = { }
 
     def get_DeviceUnit(self, register, unit=None):
       device = register.get('device', None)
@@ -84,10 +86,20 @@ class mqtt_interface():
                 break
             sleep(self.modbus_reconnect_sleep_interval)
         # Tells the modbus interface about the registers we consider interesting.
+        logging.info("Connected to modbus on {}".format(self._mb.getDevice()))
+        cnt = set()
         for register in self.registers:
-          if 'address' in register:
-            self._mb.add_monitor_register(self.get_DeviceUnit(register), register['address'], register.get('type', 'uint16'))
+          address = register.get('address', None)
+          if address is not None:
+            device_unit = self.get_DeviceUnit(register)
+            key = (device_unit, address)
+            self._mb.add_monitor_register(device_unit, address, register.get('type', 'uint16'))
+            cnt.add( key )
           register['value'] = None
+        unit_cnt = len(set(map(lambda x: x[0].unit, cnt)))
+        logging.info("Added {} unique registers.".format(len(cnt)))
+        if unit_cnt > 1:
+          logging.info("Will poll {} units.".format(unit_cnt))
         self._mb.prepare()
 
     def modbus_connection_failed(self):
@@ -110,6 +122,18 @@ class mqtt_interface():
         # Returns the registers containing the required_key
         return [register for register in self.registers if required_key in register]
 
+    def getRegisterError(self, registerKey):
+      return self._errors.get(registerKey, False)
+      
+    def _setRegisterError(self, registerKey):
+      if registerKey in self._errors:
+        return False
+      self._errors[registerKey] = True
+      return True
+      
+    def _clearRegisterError(self, registerKey):
+      self._errors.pop(registerKey, None)
+      
     def poll(self):
         try:
             self._mb.poll()
@@ -124,7 +148,11 @@ class mqtt_interface():
         json_messages_changed = {}
 
         for register in self._get_registers_with('pub_topic'):
+            deviceUnit = self.get_DeviceUnit(register)
             special = register.get('special', None)
+            address = register.get('address', None)
+            registerKey = (deviceUnit, special or address)
+            
             if special:
               if special == 'epoch':
                 value = int( time.time() )
@@ -134,16 +162,17 @@ class mqtt_interface():
                 if format:
                   value = time.strftime(format, value)
               else:
-                  logging.warning("Unknown special {}".format(special))
-                  continue
-            else:
+                if self._setRegisterError(registerKey):
+                  logging.warning("Register {}: Unknown special {}".format(deviceUnit, special))
+                continue
+            elif address is not None:
               try:
-                  value = self._mb.get_value( self.get_DeviceUnit(register),
-                                              register['address'],
+                  value = self._mb.get_value( deviceUnit,
+                                              address,
                                               register.get('type', 'uint16'))
               except Exception as e:
-                  logging.warning("Couldn't get value from register {} in table {}".format(register['address'],
-                                  register.get('table', 'holding')))
+                  if self._setRegisterError(registerKey):
+                    logging.warning("Couldn't get value from register {}, address {}".format(deviceUnit, address))
                   logging.debug(e)
                   continue
             
@@ -155,7 +184,11 @@ class mqtt_interface():
               # Scale the value, if required.
               value *= register.get('scale', 1)
               # Clamp the number of decimal points
-              value = round(value, MAX_DECIMAL_POINTS)
+              value = round(value, register.get('precision', MAX_DECIMAL_POINTS))
+            else:
+              if self._setRegisterError(registerKey):
+                logging.warning("Unsupported register type for register {}".format(registerKey))
+              continue
             
             changed = not register.get('pub_only_on_change', True)
             if value != register['value']:
@@ -167,6 +200,9 @@ class mqtt_interface():
                 if value in register['value_map'].values():
                     # This is a bit weird...
                     value = [human for human, raw in register['value_map'].items() if raw == value][0]
+
+            self._clearRegisterError(registerKey)
+
             if register.get('json_key', False):
                 # This value won't get published to MQTT immediately. It gets stored and sent at the end of the poll.
                 if register['pub_topic'] not in json_messages:

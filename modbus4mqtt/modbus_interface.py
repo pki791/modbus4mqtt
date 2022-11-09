@@ -22,6 +22,9 @@ class WordOrder(Enum):
 
 class DeviceUnit(namedtuple('DeviceUnit', [ 'unit', 'table' ])):
   __slots__ = ()
+  
+  def __str__(self):
+    return '{}@unit#{}'.format(self.table, self.unit)
     
   @classmethod
   def get_unit(cls, instance, unit):
@@ -70,6 +73,9 @@ class modbus_interface():
             else:
                 self._scan_batching = scan_batching
 
+    def getDevice(self):
+      return self._url._replace(query='').geturl()
+      
     def connect(self):
         # Connects to the modbus device
         if self._url.scheme == 'serial':
@@ -175,9 +181,9 @@ class modbus_interface():
 
     def get_value(self, table, addr, type='uint16'):
         if table not in self._values:
-            raise ValueError("Unsupported table type. Please only use: {}".format(self._values.keys()))
+            raise ValueError("Unsupported table type. Please only use: {}".format(VALID_TABLES))
         if addr not in self._values[table]:
-            raise ValueError("Unpolled address. Use add_monitor_register(addr, table) to add a register to the polled list.")
+            raise ValueError("Unpolled address. Use add_monitor_register({}, {}) to add a register to the polled list.".format(table, addr))
         # Read sequential addresses to get enough bytes to satisfy the type of this register.
         # Note: Each address provides 2 bytes of data.
         value = bytes(0)
