@@ -34,20 +34,21 @@ templates:
           type: uint32
           scale: 0.1
         - &PZEM_004T-Energy
-          pub_topic: "Energy" # Energy (1Wh)
+          pub_topic: "Energy" # Energy (0.001kWh)
           address: 5
           table: 'input'
           type: uint32
+          scale: 0.001
         - &PZEM_004T-Frequency
           pub_topic: "Frequency" # Power (0.1Hz)
           address: 7
           table: 'input'
           scale: 0.1
         - &PZEM_004T-Factor
-          pub_topic: "Factor" # Power factor (0.001)
+          pub_topic: "Factor" # Power factor (0.01)
           address: 8
           table: 'input'
-          scale: 0.001
+          scale: 0.01
         - &PZEM_004T-Alarm
           pub_topic: "Alarm" # Alarm status
           address: 9
