@@ -1,4 +1,7 @@
 templates:
+  orno-iso8601: &ORNO__ISO8601
+    special: 'time'
+    format: '%Y-%m-%dT%H:%M:%S'
   orno-default: &ORNO__DEFAULT
     table: 'holding'
   orno-short: &ORNO__SHORT
@@ -351,13 +354,13 @@ templates:
   # D_JSON_FREQUENCY freq_common
   # D_JSON_VOLTAGE volts_common
   # D_JSON_CURRENT 
-  orno-we516-status10: &ORNO_WE516-STATUS10
+  orno-we516-status10: &ORNO_WE516__STATUS10
       pub_topic: "orno-we516"
       duplicate_json_key: accept
       registers:
-        - pub_topic: "STATUS10"
+        - <<: *ORNO__ISO8601
+          pub_topic: "STATUS10"
           json_key: 'StatusSNS.Time'
-          special: 'time'
         - pub_topic: "STATUS10"
           json_key: 'StatusSNS.Epoch'
           special: 'epoch'
@@ -447,7 +450,7 @@ templates:
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.Factor'
 
-  orno-we516-status10-tariff: &ORNO_WE516-STATUS10_TARIFF
+  orno-we516-status10-tariff: &ORNO_WE516__STATUS10_TARIFF
       pub_topic: "orno-we516"
       duplicate_json_key: accept
       registers:
@@ -470,3 +473,120 @@ templates:
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.ExportTariff'
           
+  orno-we516-sensor: &ORNO_WE516__SENSOR
+      sort_json_keys: False
+      pub_topic: "orno-we516"
+      duplicate_json_key: accept
+      registers:
+        - <<: *ORNO__ISO8601
+          pub_topic: "SENSOR"
+          json_key: 'Time'
+        - pub_topic: "SENSOR"
+          json_key: 'Epoch'
+          special: 'epoch'
+
+        - <<: *ORNO_WE516-Energy_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Total'
+        - <<: *ORNO_WE516-Energy_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Total'
+        - <<: *ORNO_WE516-Energy_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Total'
+        - <<: *ORNO_WE516-Power_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Power'
+        - <<: *ORNO_WE516-Power_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Power'
+        - <<: *ORNO_WE516-Power_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Power'
+        - <<: *ORNO_WE516-ApparentPower_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ApparentPower'
+        - <<: *ORNO_WE516-ApparentPower_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ApparentPower'
+        - <<: *ORNO_WE516-ApparentPower_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ApparentPower'
+        - <<: *ORNO_WE516-ReactivePower_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ReactivePower'
+        - <<: *ORNO_WE516-ReactivePower_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ReactivePower'
+        - <<: *ORNO_WE516-ReactivePower_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ReactivePower'
+        - <<: *ORNO_WE516-Factor_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Factor'
+        - <<: *ORNO_WE516-Factor_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Factor'
+        - <<: *ORNO_WE516-Factor_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Factor'
+        - <<: *ORNO_WE516-Voltage_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Voltage'
+        - <<: *ORNO_WE516-Voltage_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Voltage'
+        - <<: *ORNO_WE516-Voltage_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Voltage'
+        - <<: *ORNO_WE516-Current_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Current'
+        - <<: *ORNO_WE516-Current_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Current'
+        - <<: *ORNO_WE516-Current_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Current'
+        # todo: differenciate Total for Option129?
+        - <<: *ORNO_WE516-Import_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ImportActive'
+        - <<: *ORNO_WE516-Import_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ImportActive'
+        - <<: *ORNO_WE516-Import_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ImportActive'
+        - <<: *ORNO_WE516-Export_L1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ExportActive'
+        - <<: *ORNO_WE516-Export_L2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ExportActive'
+        - <<: *ORNO_WE516-Export_L3
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ExportActive'
+
+  orno-we516-sensor-tariff: &ORNO_WE516__SENSOR_TARIFF
+      pub_topic: "orno-we516"
+      duplicate_json_key: accept
+      registers:
+        - <<: *ORNO_WE516-Energy_T1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.TotalTariff'
+        - <<: *ORNO_WE516-Energy_T2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.TotalTariff'
+        - <<: *ORNO_WE516-Import_T1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ImportTariff'
+        - <<: *ORNO_WE516-Import_T2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ImportTariff'
+        - <<: *ORNO_WE516-Export_T1
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ExportTariff'
+        - <<: *ORNO_WE516-Export_T2
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.ExportTariff'

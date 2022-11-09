@@ -20,11 +20,11 @@ units:
 devices:
   - << : [ *UNIT_0x48, *PZEM_004T__INFO ]
   - << : [ *UNIT_0x48, *PZEM_004T__ENERGY ]
-  - << : [ *UNIT_0x48, *PZEM_004T__STATUS10 ]
+#  - << : [ *UNIT_0x48, *PZEM_004T__STATUS10 ]
   - << : [ *UNIT_0x48, *PZEM_004T__SENSOR ]
   
   - << : [ *UNIT_0x2C, *PZEM_004T__INFO ]
   - << : [ *UNIT_0x2C, *PZEM_004T__ENERGY ]
-  - << : [ *UNIT_0x2C, *PZEM_004T__STATUS10 ]
+#  - << : [ *UNIT_0x2C, *PZEM_004T__STATUS10 ]
   - << : [ *UNIT_0x2C, *PZEM_004T__SENSOR ]
     
