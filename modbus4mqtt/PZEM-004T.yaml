@@ -1,4 +1,7 @@
 templates:
+  iso8601-time: &ISO8601__TIME
+      special: 'time'
+      format: '%Y-%m-%dT%H:%M:%S'
   pzem_004t-info: &PZEM_004T__INFO
       pub_topic: pzem-004t
       registers:
@@ -53,11 +56,12 @@ templates:
             yes: 0xFFFF
             no: 0
   pzem_004t-status10: &PZEM_004T__STATUS10
+      sort_json_keys: False
       pub_topic: pzem-004t
       registers:
-        - pub_topic: "STATUS10"
+        - <<: *ISO8601__TIME
+          pub_topic: "STATUS10"
           json_key: 'StatusSNS.Time'
-          special: 'time'
         - pub_topic: "STATUS10"
           json_key: 'StatusSNS.Epoch'
           special: 'epoch'
@@ -90,3 +94,42 @@ templates:
         - <<: *PZEM_004T-Current
           pub_topic: "STATUS10"
           json_key: 'StatusSNS.ENERGY.Current'
+  pzem_004t-sensor: &PZEM_004T__SENSOR
+      sort_json_keys: False
+      pub_topic: pzem-004t
+      registers:
+        - <<: *ISO8601__TIME
+          pub_topic: "SENSOR"
+          json_key: 'Time'
+        - pub_topic: "SENSOR"
+          json_key: 'Epoch'
+          special: 'epoch'
+        - <<: *PZEM_004T-Energy
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Total'
+        - <<: *PZEM_004T-Power
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Power'
+        #- pub_topic: "ApparentPower" # Apparent power (0.1VA)
+        #  address: 3
+        #  table: 'input'
+        #  type: uint32
+        #  scale: 0.1
+        #  pub_topic: "SENSOR"
+        #  json_key: 'ENERGY.ApparentPower'
+        #- pub_topic: "ReactivePower" # Reactive power (0.1var)
+        #  address: 3
+        #  table: 'input'
+        #  type: uint32
+        #  scale: 0.1
+        #  pub_topic: "SENSOR"
+        #  json_key: 'ENERGY.ReactivePower'
+        - <<: *PZEM_004T-Factor
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Factor'
+        - <<: *PZEM_004T-Voltage
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Voltage'
+        - <<: *PZEM_004T-Current
+          pub_topic: "SENSOR"
+          json_key: 'ENERGY.Current'

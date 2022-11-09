@@ -4,7 +4,7 @@ from time import sleep
 import time
 import json
 import logging
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from ccorp.ruamel.yaml.include import YAML
 import click
 import paho.mqtt.client as mqtt
@@ -146,6 +146,7 @@ class mqtt_interface():
         json_messages = {}
         json_messages_retain = {}
         json_messages_changed = {}
+        json_messages_sort = {}
 
         for register in self._get_registers_with('pub_topic'):
             deviceUnit = self.get_DeviceUnit(register)
@@ -206,8 +207,9 @@ class mqtt_interface():
             if register.get('json_key', False):
                 # This value won't get published to MQTT immediately. It gets stored and sent at the end of the poll.
                 if register['pub_topic'] not in json_messages:
-                    json_messages[register['pub_topic']] = {}
+                    json_messages[register['pub_topic']] = OrderedDict()
                     json_messages_retain[register['pub_topic']] = False
+                    json_messages_sort[register['pub_topic']] = register['sort_json_keys']
                     json_messages_changed[register['pub_topic']] = changed
                 set_json_message_value(json_messages[register['pub_topic']], register['json_key'], value)
                 if changed and not register.get('json_ignore_changed', False):
@@ -221,7 +223,7 @@ class mqtt_interface():
         # Transmit the queued JSON messages.
         for topic, message in json_messages.items():
           if json_messages_changed[topic]:
-            m = json.dumps(message, sort_keys=True)
+            m = json.dumps(message, sort_keys=json_messages_sort[topic])
             self._mqtt_client.publish(self.prefix+topic, m, retain=json_messages_retain[topic])
 
     def _on_connect(self, client, userdata, flags, rc):
@@ -349,10 +351,13 @@ class mqtt_interface():
             pub_topic = device.get('pub_topic', '')
             address_offset = device.get('address_offset', self.address_offset)
             duplicate_json_key = device.get('duplicate_json_key', 'warn')
+            sort_json_keys = device.get('sort_json_keys', True)
             
             for register in device_registers:
               if unit is not None:
                 register['unit'] = unit
+              if 'json_key' in register:
+                register['sort_json_keys'] = sort_json_keys
               if pub_topic:
                 register['pub_topic'] = '/'.join([pub_topic, register['pub_topic']])
               if 'address' in register:
