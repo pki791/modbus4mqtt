@@ -2,13 +2,13 @@
 - !include modbus4mqtt/PZEM-004T.yaml
 - !include modbus4mqtt/ORNO-WE516.yaml
 
-#url: serial://ttyUSB1
+#url: serial:///dev/ttyUSB1?comset=8E1
 url: serial://com5
 update_rate: 3
 pub_topic: pzem-004t
 options:
   word_order: lowhigh
-  scan_batching: 12
+  scan_batching: 50
   range_batching: True
 units:
   - &UNIT_0x2C
@@ -17,6 +17,11 @@ units:
   - &UNIT_0x48
     unit: 0x48
     pub_topic: pzem-002
+  - &UNIT_0x01
+    word_order: highlow
+    unit: 0x01
+    pub_topic: orno3p1
+
 devices:
   - << : [ *UNIT_0x48, *PZEM_004T__INFO ]
   - << : [ *UNIT_0x48, *PZEM_004T__ENERGY ]
@@ -28,3 +33,8 @@ devices:
 #  - << : [ *UNIT_0x2C, *PZEM_004T__STATUS10 ]
   - << : [ *UNIT_0x2C, *PZEM_004T__SENSOR ]
     
+#  - << : [ *UNIT_0x01, *ORNO_WE516__INFO ]
+#  - << : [ *UNIT_0x01, *ORNO_WE516__ENERGY ]
+#  - << : [ *UNIT_0x01, *ORNO_WE516__POWER ]
+##  - << : [ *UNIT_0x01, *ORNO_WE516__STATUS10 ]
+#  - << : [ *UNIT_0x01, *ORNO_WE516__SENSOR ]
