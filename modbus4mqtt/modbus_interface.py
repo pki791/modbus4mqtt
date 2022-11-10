@@ -84,7 +84,7 @@ class modbus_interface():
             baudrate = params.get('baud', [9600])[0]
             comset   = params.get('comset', [''])[0]
             if comset:
-              (bytesize, parity, stopbits) = comset[0:2]
+              (bytesize, parity, stopbits) = comset
             else:
               (bytesize, parity, stopbits) = (
                 params.get('bytesize', [8])[0],
