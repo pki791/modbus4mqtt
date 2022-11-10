@@ -174,7 +174,7 @@ class mqtt_interface():
               except Exception as e:
                   if self._setRegisterError(registerKey):
                     logging.warning("Couldn't get value from register {}, address {}".format(deviceUnit, address))
-                  logging.debug(e)
+                  logging.debug(e, stack_info=True)
                   continue
             
               # Filter the value through the mask, if present.
@@ -287,7 +287,7 @@ class mqtt_interface():
         duplicate_json_keys = {}
         # Key: shared pub_topics, value: set of retain values (true/false)
         retain_setting = {}
-        valid_types = ['uint16', 'int16', 'uint32', 'int32', 'uint64', 'int64']
+        valid_types = modbus_interface.valid_types
 
         # Look for duplicate pub_topics
         for register in registers:

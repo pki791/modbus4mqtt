@@ -1,12 +1,11 @@
 from time import time, sleep
 from enum import Enum
 from collections import namedtuple, defaultdict
+import struct
 import logging
 from queue import Queue
 from urllib.parse import urlparse, parse_qs
 from pymodbus import exceptions
-from pymodbus.payload import BinaryPayloadDecoder
-from pymodbus.constants import Endian
 
 DEFAULT_SCAN_BATCHING = 100
 MIN_SCAN_BATCHING = 1
@@ -42,7 +41,7 @@ class DeviceUnit(namedtuple('DeviceUnit', [ 'unit', 'table' ])):
     
 class modbus_interface():
 
-    def __init__(self, url, scan_batching=None, word_order=WordOrder.HighLow, options={}):
+    def __init__(self, url, scan_batching=None, options={}):
         self._url = urlparse(url)
         # This is a dict of sets. Each key represents one table of modbus registers.
         # At the moment it has 'input' and 'holding'
@@ -82,21 +81,21 @@ class modbus_interface():
             from pymodbus.client.sync import ModbusSerialClient, ModbusRtuFramer
             port     = self._url.path or self._url.netloc
             params   = parse_qs(self._url.query)
-            baudrate = params.get('baud', 9600)
-            comset   = params.get('comset', '')
+            baudrate = params.get('baud', [9600])[0]
+            comset   = params.get('comset', [''])[0]
             if comset:
               (bytesize, parity, stopbits) = comset[0:2]
             else:
               (bytesize, parity, stopbits) = (
-                params.get('bytesize', 8),
-                params.get('parity', 'N'),
-                params.get('stopbits', 1)
+                params.get('bytesize', [8])[0],
+                params.get('parity', ['N'])[0],
+                params.get('stopbits', [1])[0]
               )
             # baudrate parity stopbits
             self._mb = ModbusSerialClient(port=port,
                                        method='rtu',
                                        timeout=1,RetryOnEmpty=True, retries=1
-                                       , baudrate=baudrate, parity=parity, stopbits=stopbits)
+                                       , baudrate=int(baudrate), parity=parity, stopbits=int(stopbits))
         else:
             host=self._url.hostname
             port=self._url.port if self._url.hasattr('port') else 502
@@ -169,6 +168,7 @@ class modbus_interface():
             
             for ( group, count ) in ranges:
               try:
+                  logging.debug('{}: Read {} registers, starting at {}'.format(table, count, group))
                   values = self._scan_value_range(table, group, count)
                   for x in range(0, count):
                       key = group + x
@@ -176,7 +176,8 @@ class modbus_interface():
                   # Avoid back-to-back read operations that could overwhelm some modbus devices.
                   sleep(DEFAULT_READ_SLEEP_S)
               except ValueError as e:
-                  logging.exception("{}".format(e))
+                  logging.error("{}".format(e))
+                  logging.debug(e, stack_info=True)
         self._process_writes()
 
     def get_value(self, table, addr, type='uint16'):
@@ -194,7 +195,7 @@ class modbus_interface():
             else:
                 data = self._values[table][addr + (type_len-i-1)]
             value += data.to_bytes(2,'big')
-        value = _convert_from_bytes_to_type(value, type)
+        value = _convert_from_bytes_to_type(value, type, self._word_order)
         return value
 
     def set_value(self, table, addr, value, mask=0xFFFF, type='uint16'):
@@ -203,15 +204,15 @@ class modbus_interface():
             # so leave this door open.
             raise ValueError("Can only set values in the holding table.")
 
-        bytes_to_write = _convert_from_type_to_bytes(value, type)
+        bytes_to_write = _convert_from_type_to_bytes(value, type, self._word_order)
         # Put the bytes into _planned_writes stitched into two-byte pairs
 
         type_len = type_length(type)
         for i in range(type_len):
             if self._word_order == WordOrder.HighLow:
-                value = _convert_from_bytes_to_type(bytes_to_write[i*2:i*2+2], 'uint16')
+                value = _convert_from_bytes_to_type(bytes_to_write[i*2:i*2+2], 'uint16', self._word_order)
             else:
-                value = _convert_from_bytes_to_type(bytes_to_write[(type_len-i-1)*2:(type_len-i-1)*2+2], 'uint16')
+                value = _convert_from_bytes_to_type(bytes_to_write[(type_len-i-1)*2:(type_len-i-1)*2+2], 'uint16', self._word_order)
             self._planned_writes.put((table, addr+i, value, mask))
 
         self._process_writes()
@@ -251,7 +252,8 @@ class modbus_interface():
         except Exception as e:
             # BUG catch only the specific exception that means pymodbus failed to write to a register
             # the modbus device doesn't support, not an error at the TCP layer.
-            logging.exception("Failed to write to modbus device: {}".format(e))
+            logging.error("Failed to write to modbus device: {}".format(e))
+            logging.debug(e, stack_info=True)
         finally:
             self._writing = False
 
@@ -268,6 +270,14 @@ class modbus_interface():
         except:
             # The result doesn't have a registers attribute, something has gone wrong!
             raise ValueError("Failed to read {} {} table registers from unit {} starting from {}: {}".format(count, table, unit, start, result))
+
+valid_types = [ 'uint16', 'int16'
+              , 'uint32', 'int32'
+              , 'uint64', 'int64'
+              , 'float'
+              , 'float_be', '>float'
+              , 'float_le', '<float'
+              ]
 
 def type_length(type):
     # Return the number of addresses needed for the type.
@@ -288,23 +298,26 @@ def type_signed(type):
         return True
     raise ValueError ("Unsupported type {}".format(type))
 
-def _convert_from_bytes_to_type(value, type):
+def _convert_from_bytes_to_type(value, type, word_order):
     type = type.strip().lower()
-    if type == 'float':
-      endian = Endian.Little if self._word_order == LowHigh else Endian.Big
-      decoder = BinaryPayloadDecoder.fromRegisters(value, wordorder=endian)
-      return decoder.decode_32bit_float()
+    if type in ( 'float' ):
+      type = '>float' if word_order == WordOrder.HighLow else '<float'
+    if type in ( 'float_be', '>float' ):
+      return struct.unpack('>f', value)[0]
+    elif type in ( 'float_le', '<float' ):
+      return struct.unpack('<f', value)[0]
     else:
       signed = type_signed(type)
       return int.from_bytes(value,byteorder='big',signed=signed)
 
-def _convert_from_type_to_bytes(value, type):
+def _convert_from_type_to_bytes(value, type, word_order):
     type = type.strip().lower()
-    if type == 'float':
-      endian = Endian.Little if self._word_order == LowHigh else Endian.Big
-      encoder = BinaryPayloadBuilder(wordorder=endian)
-      encoder.add_32bit_float(value)
-      return encoder.build()
+    if type in ( 'float' ):
+      type = '>float' if word_order == WordOrder.HighLow else '<float'
+    if type in ( 'float', 'float_be', '>float' ):
+      return struct.pack('>f', value)
+    elif type in ( 'float_le', '<float' ):
+      return struct.pack('<f', value)
     else:
       signed = type_signed(type)
       # This can throw an OverflowError in various conditons. This will usually
