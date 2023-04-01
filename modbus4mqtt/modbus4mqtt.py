@@ -248,7 +248,7 @@ class mqtt_interface():
         # print("got a message: {}: {}".format(msg.topic, msg.payload))
         # TODO Handle json_key writes. https://github.com/tjhowse/modbus4mqtt/issues/23
         topic = msg.topic[len(self.prefix):]
-        for register in [register for register in self.registers if 'set_topic' in register]:
+        for register in self._get_registers_with('set_topic'):
             if topic != register['set_topic']:
                 continue
             # We received a set topic message for this topic.
@@ -275,7 +275,7 @@ class mqtt_interface():
                               "Bad/missing value_map? Topic: {}, Value: {}".format(topic, value))
                 continue
             type = register.get('type', 'uint16')
-            self._mb.set_value(register.get('table', 'holding'), register['address'], int(value),
+            self._mb.set_value(self.get_DeviceUnit(register), register['address'], int(value),
                                register.get('mask', 0xFFFF), type)
 
     # This throws ValueError exceptions if the imported registers are invalid
