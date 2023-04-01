@@ -348,7 +348,7 @@ class mqtt_interface():
             device_registers = [dict(register) for register in device['registers'] if 'pub_topic' in register]
 
             unit = device.get('unit', None)
-            pub_topic = device.get('pub_topic', '')
+            device_topic = device.get('pub_topic', '')
             address_offset = device.get('address_offset', self.address_offset)
             duplicate_json_key = device.get('duplicate_json_key', 'warn')
             sort_json_keys = device.get('sort_json_keys', True)
@@ -358,8 +358,10 @@ class mqtt_interface():
                 register['unit'] = unit
               if 'json_key' in register:
                 register['sort_json_keys'] = sort_json_keys
-              if pub_topic:
-                register['pub_topic'] = '/'.join([pub_topic, register['pub_topic']])
+              if device_topic:
+                register['pub_topic'] = '/'.join([device_topic, register['pub_topic']])
+                if 'set_topic' in register:
+                  register['set_topic'] = '/'.join([device_topic, register['set_topic']])
               if 'address' in register:
                 register['address'] += address_offset
               register['device'] = self.get_DeviceUnit(register, unit)
