@@ -193,7 +193,8 @@ class mqtt_interface():
             
             changed = not register.get('pub_only_on_change', True)
             if value != register['value']:
-                changed = True
+                if not special:
+                  changed = True
                 register['value'] = value
 
             # Map from the raw number back to the human-readable form
@@ -236,7 +237,8 @@ class mqtt_interface():
         for register in self._get_registers_with('set_topic'):
             self._mqtt_client.subscribe(self.prefix+register['set_topic'])
             print("Subscribed to {}".format(self.prefix+register['set_topic']))
-        self._mqtt_client.publish(self.prefix+'modbus4mqtt', 'modbus4mqtt v{} connected.'.format(version.version))
+        # Publish info message with retain
+        self._mqtt_client.publish(self.prefix+'modbus4mqtt', 'modbus4mqtt v{} connected.'.format(version.version), retain=True)
 
     def _on_disconnect(self, client, userdata, rc):
         logging.warning("Disconnected from MQTT. Attempting to reconnect.")
@@ -338,17 +340,18 @@ class mqtt_interface():
         self.address_offset = result.get('address_offset', 0)
         if 'registers' in result:
           # make copies of the register, to materialize all yaml aliases in each register
-          registers = [dict(register) for register in result['registers'] if 'pub_topic' in register]
+          registers = [dict(register) for register in result['registers'] if 'pub_topic' in register or 'set_topic' in register]
           for register in registers:
             register['address'] += self.address_offset
         elif 'devices' in result:
           registers = list()
           for device in result['devices']:
             # make copies of the register, to materialize all yaml aliases in each register
-            device_registers = [dict(register) for register in device['registers'] if 'pub_topic' in register]
+            device_registers = [dict(register) for register in device['registers'] if 'pub_topic' in register or 'set_topic' in register]
 
             unit = device.get('unit', None)
             device_topic = device.get('pub_topic', '')
+            set_topic = device.get('set_topic', device_topic) # Use device_topic as default for set_topic
             address_offset = device.get('address_offset', self.address_offset)
             duplicate_json_key = device.get('duplicate_json_key', 'warn')
             sort_json_keys = device.get('sort_json_keys', True)
@@ -359,9 +362,9 @@ class mqtt_interface():
               if 'json_key' in register:
                 register['sort_json_keys'] = sort_json_keys
               if device_topic:
-                register['pub_topic'] = '/'.join([device_topic, register['pub_topic']])
-                if 'set_topic' in register:
-                  register['set_topic'] = '/'.join([device_topic, register['set_topic']])
+                register['pub_topic'] = '/'.join(filter(None, [device_topic, register['pub_topic']]))
+              if 'set_topic' in register:
+                register['set_topic'] = '/'.join(filter(None, [set_topic, register['set_topic']]))
               if 'address' in register:
                 register['address'] += address_offset
               register['device'] = self.get_DeviceUnit(register, unit)
