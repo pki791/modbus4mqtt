@@ -108,7 +108,16 @@ class modbus_interface():
                                                   framer=ModbusSocketFramer, timeout=1,
                                                   RetryOnEmpty=True, retries=1)
             else:
-                from pymodbus.client.sync import ModbusTcpClient, ModbusSocketFramer
+                try:
+                    # Pymodbus >= 3.0
+                    # TODO: Once SungrowModbusTcpClient 0.1.7 is released,
+                    # we can remove the "<3.0.0" pymodbus restriction and this
+                    # will make sense again.
+                    from pymodbus.client import ModbusTcpClient
+                    from pymodbus.transaction import ModbusSocketFramer
+                except ImportError:
+                    # Pymodbus < 3.0
+                    from pymodbus.client.sync import ModbusTcpClient, ModbusSocketFramer
                 self._mb = ModbusTcpClient(host, port,
                                            framer=ModbusSocketFramer, timeout=1,
                                            RetryOnEmpty=True, retries=1)
