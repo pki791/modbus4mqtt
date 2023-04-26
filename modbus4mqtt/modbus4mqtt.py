@@ -361,7 +361,7 @@ class mqtt_interface():
                 register['unit'] = unit
               if 'json_key' in register:
                 register['sort_json_keys'] = sort_json_keys
-              if device_topic:
+              if 'pub_topic' in register:
                 register['pub_topic'] = '/'.join(filter(None, [device_topic, register['pub_topic']]))
               if 'set_topic' in register:
                 register['set_topic'] = '/'.join(filter(None, [set_topic, register['set_topic']]))
