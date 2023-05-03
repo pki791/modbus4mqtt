@@ -296,19 +296,21 @@ class mqtt_interface():
             type = register.get('type', 'uint16')
             if type not in valid_types:
                 raise ValueError("Bad YAML configuration. Register has invalid type '{}'.".format(type))
-            if register['pub_topic'] in all_pub_topics:
-                duplicate_pub_topics.add(register['pub_topic'])
-                duplicate_json_keys[register['pub_topic']] = []
-                retain_setting[register['pub_topic']] = set()
             if 'json_key' in register and 'set_topic' in register:
                 raise ValueError("Bad YAML configuration. Register with set_topic '{}' has a json_key specified. "
                                  "This is invalid. See https://github.com/tjhowse/modbus4mqtt/issues/23 for details."
                                  .format(register['set_topic']))
-            all_pub_topics.add(register['pub_topic'])
+            if 'pub_topic' in register:
+                if register['pub_topic'] in all_pub_topics:
+                    duplicate_pub_topics.add(register['pub_topic'])
+                    duplicate_json_keys[register['pub_topic']] = []
+                    retain_setting[register['pub_topic']] = set()
+                all_pub_topics.add(register['pub_topic'])
 
         # Check that all registers with duplicate pub topics have json_keys
         for register in registers:
-            if register['pub_topic'] in duplicate_pub_topics:
+            if 'pub_topic' in register:
+              if register['pub_topic'] in duplicate_pub_topics:
                 if 'json_key' not in register:
                     raise ValueError("Bad YAML configuration. pub_topic '{}' duplicated across registers without "
                                      "json_key field. Registers that share a pub_topic must also have a unique "
