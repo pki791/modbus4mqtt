@@ -98,7 +98,7 @@ class modbus_interface():
                                        , baudrate=int(baudrate), parity=parity, stopbits=int(stopbits))
         else:
             host=self._url.hostname
-            port=self._url.port if self._url.hasattr('port') else 502
+            port=self._url.port or 502
             if self._url.scheme == 'sungrow':
                 from SungrowModbusTcpClient import SungrowModbusTcpClient
                 # Some later versions of the sungrow inverter firmware encrypts the payloads of
