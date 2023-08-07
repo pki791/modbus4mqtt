@@ -1,14 +1,10 @@
 # Modbus4MQTT
 
-https://github.com/tjhowse/modbus4mqtt
+https://github.com/a-s-z-home/modbus4mqtt
 
-https://pypi.org/project/modbus4mqtt/
+This is my fork of https://github.com/tjhowse/modbus4mqtt
 
-![](https://github.com/tjhowse/modbus4mqtt/workflows/Unit%20Tests/badge.svg)
-
-[![codecov](https://codecov.io/gh/tjhowse/modbus4mqtt/branch/master/graph/badge.svg)](https://codecov.io/gh/tjhowse/modbus4mqtt)
-
-This is a gateway that translates between modbus TCP/IP and MQTT.
+Modbus4mqtt is a gateway that translates between modbus TCP/IP and MQTT.
 
 The mapping of modbus registers to MQTT topics is in a simple YAML file.
 
@@ -29,23 +25,16 @@ be a complete solution.
 ### Python module
 
 ```bash
-$ pip3 install --user modbus4mqtt
-$ modbus4mqtt --help
+$ git clone https://github.com/a-s-z-home/modbus4mqtt
+$ pip3 install -r requirements.txt
 ```
-
-### Docker container
-
-Alternatively you can run Modbus4MQTT in a Docker container. A [Dockerfile](./Dockerfile) example is provided.
-
-```bash
-$ docker pull tjhowse/modbus4mqtt:latest
-$ docker run modbus4mqtt --help
-```
-When launching inside the docker container you will either need to use one of the built-in YAMLs like `/modbus4mqtt/modbus4mqtt/Sungrow_SH5k_20.yaml`, or map your custom YAML into the container in a volume.
 
 ## YAML definition
 
-Look at the [Sungrow SH5k-20](./modbus4mqtt/Sungrow_SH5k_20.yaml) configuration YAML for a working example.
+Look at (./modbus4mqtt.yaml) configuration YAML using enhanced syntax and templates in include files.
+
+For original working example, look at the [Sungrow SH5k-20](./modbus4mqtt/Sungrow_SH5k_20.yaml) configuration YAML.
+
 
 ### Modbus device settings
 ```yaml
