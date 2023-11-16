@@ -8,6 +8,7 @@ from collections import defaultdict, OrderedDict
 from ccorp.ruamel.yaml.include import YAML
 import click
 import paho.mqtt.client as mqtt
+import threading
 
 from . import modbus_interface
 from . import version
@@ -51,6 +52,7 @@ class mqtt_interface():
         self.modbus_connect_retries = -1  # Retry forever by default
         self.modbus_reconnect_sleep_interval = 5  # Wait this many seconds between modbus connection attempts
         self._errors = { }
+        self.poll_event = threading.Event()
 
     def get_DeviceUnit(self, register, unit=None):
       device = register.get('device', None)
@@ -239,7 +241,8 @@ class mqtt_interface():
         # Subscribe to all the set topics.
         for register in self._get_registers_with('set_topic'):
             self._mqtt_client.subscribe(self.prefix+register['set_topic'])
-            print("Subscribed to {}".format(self.prefix+register['set_topic']))
+            logging.info("Subscribed to {}".format(self.prefix+register['set_topic']))
+        # self._mqtt_client.publish(self.prefix+'modbus4mqtt', 'modbus4mqtt v{} connected.'.format(version.version))
         # Publish info message with retain
         self._mqtt_client.publish(self.prefix+'modbus4mqtt', 'modbus4mqtt v{} connected.'.format(version.version), retain=True)
     def _on_disconnect(self, client, userdata, rc):
@@ -249,7 +252,7 @@ class mqtt_interface():
         pass
 
     def _on_message(self, client, userdata, msg):
-        # print("got a message: {}: {}".format(msg.topic, msg.payload))
+        logging.info("Got a MQTT message: {}: {}".format(msg.topic, msg.payload))
         # TODO Handle json_key writes. https://github.com/tjhowse/modbus4mqtt/issues/23
         topic = msg.topic[len(self.prefix):]
         for register in self._get_registers_with('set_topic'):
@@ -281,6 +284,9 @@ class mqtt_interface():
             type = register.get('type', 'uint16')
             self._mb.set_value(self.get_DeviceUnit(register), register['address'], int(value),
                                register.get('mask', 0xFFFF), type)
+
+            #let polling occur now
+            self.poll_event.set()
 
     # This throws ValueError exceptions if the imported registers are invalid
     @staticmethod
@@ -381,10 +387,14 @@ class mqtt_interface():
 
     def loop_forever(self):
         while True:
-            # TODO this properly.
+            # Updated to polling in timer based intervals
             self.poll()
-            sleep(self.config.get('update_rate', DEFAULT_SCAN_RATE_S))
-
+#            sleep(self.config.get('update_rate', DEFAULT_SCAN_RATE_S))
+            interval = self.config.get('update_rate', DEFAULT_SCAN_RATE_S)
+            current_time = time.time()
+            sleep_time = interval - (current_time % interval)
+            self.poll_event.wait(sleep_time)
+            self.poll_event.clear()
 
 @click.command()
 @click.option('--hostname', default='localhost',
