@@ -226,7 +226,7 @@ class modbus_interface():
 
         self._process_writes()
 
-    def _process_writes(self, max_block_s=self._write_block_interval):
+    def _process_writes(self):
         # TODO I am not entirely happy with this system. It's supposed to prevent
         # anything overwhelming the modbus interface with a heap of rapid writes,
         # but without its own event loop it could be quite a while between calls to
@@ -236,7 +236,7 @@ class modbus_interface():
         write_start_time = time()
         try:
             self._writing = True
-            while not self._planned_writes.empty() and (time() - write_start_time) < max_block_s:
+            while not self._planned_writes.empty() and (time() - write_start_time) < self._write_block_interval:
                 device_unit, addr, value, mask = self._planned_writes.get()
                 unit = DeviceUnit.get_unit(device_unit, self._unit)
                 if mask == 0xFFFF:
