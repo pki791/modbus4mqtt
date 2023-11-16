@@ -23,7 +23,6 @@ def set_json_message_value(message, json_key, value):
       if json_key not in target:
         target[json_key] = dict()
       target = target[json_key]
-  
   old = target.get(json_keys[-1], None)
   if old is not None:
     if not isinstance(old, list):
@@ -51,7 +50,6 @@ class mqtt_interface():
         self.prefix = mqtt_topic_prefix
         self.modbus_connect_retries = -1  # Retry forever by default
         self.modbus_reconnect_sleep_interval = 5  # Wait this many seconds between modbus connection attempts
-        
         self._errors = { }
 
     def get_DeviceUnit(self, register, unit=None):
@@ -65,7 +63,7 @@ class mqtt_interface():
         if 'options' in self.config:
           unit = self.config['options'].get('unit', unit)
       return modbus_interface.DeviceUnit(table=table, unit=unit)
-    
+
     def connect(self):
         # Connects to modbus and MQTT.
         self.connect_modbus()
@@ -124,16 +122,16 @@ class mqtt_interface():
 
     def getRegisterError(self, registerKey):
       return self._errors.get(registerKey, False)
-      
+
     def _setRegisterError(self, registerKey):
       if registerKey in self._errors:
         return False
       self._errors[registerKey] = True
       return True
-      
+
     def _clearRegisterError(self, registerKey):
       self._errors.pop(registerKey, None)
-      
+
     def poll(self):
         try:
             self._mb.poll()
@@ -153,7 +151,7 @@ class mqtt_interface():
             special = register.get('special', None)
             address = register.get('address', None)
             registerKey = (deviceUnit, special or address)
-            
+
             if special:
               if special == 'epoch':
                 value = int( time.time() )
@@ -176,7 +174,7 @@ class mqtt_interface():
                     logging.warning("Couldn't get value from register {}, address {}".format(deviceUnit, address))
                   logging.debug(e, stack_info=True)
                   continue
-            
+
               # Filter the value through the mask, if present.
               if 'mask' in register:
                   # masks only make sense for uint
@@ -190,8 +188,8 @@ class mqtt_interface():
               if self._setRegisterError(registerKey):
                 logging.warning("Unsupported register type for register {}".format(registerKey))
               continue
-            
-            changed = not register.get('pub_only_on_change', True)
+
+            changed = not register.get('pub_only_on_change', False)
             if value != register['value']:
                 if not special:
                   changed = True
@@ -209,7 +207,7 @@ class mqtt_interface():
                 # This value won't get published to MQTT immediately. It gets stored and sent at the end of the poll.
                 if register['pub_topic'] not in json_messages:
                     json_messages[register['pub_topic']] = OrderedDict()
-                    json_messages_retain[register['pub_topic']] = False
+                    json_messages_retain[register['pub_topic']] = True
                     json_messages_sort[register['pub_topic']] = register['sort_json_keys']
                     json_messages_changed[register['pub_topic']] = changed
                 set_json_message_value(json_messages[register['pub_topic']], register['json_key'], value)
@@ -218,14 +216,19 @@ class mqtt_interface():
                 if 'retain' in register:
                     json_messages_retain[register['pub_topic']] = register['retain']
             elif changed:
-                retain = register.get('retain', False)
-                self._mqtt_client.publish(self.prefix+register['pub_topic'], value, retain=retain)
+                retain = register.get('retain', True)
+                self._mqtt_client.publish(self.prefix+register['pub_topic'], value, qos=1, retain=retain)
 
         # Transmit the queued JSON messages.
         for topic, message in json_messages.items():
           if json_messages_changed[topic]:
-            m = json.dumps(message, sort_keys=json_messages_sort[topic])
-            self._mqtt_client.publish(self.prefix+topic, m, retain=json_messages_retain[topic])
+            message_w_timestamp = message
+#            message_w_timestamp['TimeStamp'] = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime())
+            message_w_timestamp['TimeStamp'] = str(int (time.time()))
+
+            #m = json.dumps(message, sort_keys=json_messages_sort[topic])
+            m = json.dumps(message_w_timestamp, sort_keys=json_messages_sort[topic])
+            self._mqtt_client.publish(self.prefix+topic, m, qos=1, retain=json_messages_retain[topic])
 
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -239,7 +242,6 @@ class mqtt_interface():
             print("Subscribed to {}".format(self.prefix+register['set_topic']))
         # Publish info message with retain
         self._mqtt_client.publish(self.prefix+'modbus4mqtt', 'modbus4mqtt v{} connected.'.format(version.version), retain=True)
-
     def _on_disconnect(self, client, userdata, rc):
         logging.warning("Disconnected from MQTT. Attempting to reconnect.")
 
@@ -357,7 +359,7 @@ class mqtt_interface():
             address_offset = device.get('address_offset', self.address_offset)
             duplicate_json_key = device.get('duplicate_json_key', 'warn')
             sort_json_keys = device.get('sort_json_keys', True)
-            
+
             for register in device_registers:
               if unit is not None:
                 register['unit'] = unit
@@ -372,7 +374,7 @@ class mqtt_interface():
               register['device'] = self.get_DeviceUnit(register, unit)
             mqtt_interface._validate_registers(device_registers, duplicate_json_key)
             registers += device_registers
-        
+
         mqtt_interface._validate_registers(registers, 'ignore')
         self.registers = registers
         return result
@@ -385,7 +387,7 @@ class mqtt_interface():
 
 
 @click.command()
-@click.option('--hostname', default='mqtt',
+@click.option('--hostname', default='localhost',
               help='The hostname or IP address of the MQTT server.', show_default=True)
 @click.option('--port', default=1883,
               help='The port of the MQTT server.', show_default=True)
@@ -393,7 +395,7 @@ class mqtt_interface():
               help='The username to authenticate to the MQTT server.', show_default=True)
 @click.option('--password', default='password',
               help='The password to authenticate to the MQTT server.', show_default=True)
-@click.option('--mqtt_topic_prefix', default='wgw12/energy/pzem-004t',
+@click.option('--mqtt_topic_prefix', default='default',
               help='A prefix for published MQTT topics.', show_default=True)
 @click.option('--config', default='./modbus4mqtt.yaml',
               help='The YAML config file for your modbus device.', show_default=True)

@@ -7,10 +7,10 @@ from queue import Queue
 from urllib.parse import urlparse, parse_qs
 from pymodbus import exceptions
 
-DEFAULT_SCAN_BATCHING = 100
+DEFAULT_SCAN_BATCHING = 10
 MIN_SCAN_BATCHING = 1
 MAX_SCAN_BATCHING = 100
-DEFAULT_WRITE_BLOCK_INTERVAL_S = 0.2
+DEFAULT_WRITE_BLOCK_INTERVAL_S = 0.1
 DEFAULT_WRITE_SLEEP_S = 0.05
 DEFAULT_READ_SLEEP_S = 0.05
 VALID_TABLES = [ 'input', 'holding' ]
@@ -21,16 +21,16 @@ class WordOrder(Enum):
 
 class DeviceUnit(namedtuple('DeviceUnit', [ 'unit', 'table' ])):
   __slots__ = ()
-  
+
   def __str__(self):
     return '{}@unit#{}'.format(self.table, self.unit)
-    
+
   @classmethod
   def get_unit(cls, instance, unit):
     if isinstance(instance, DeviceUnit):
       return instance.unit
     return unit
-  
+
   @classmethod
   def get_table(cls, instance):
     if isinstance(instance, DeviceUnit):
@@ -38,7 +38,7 @@ class DeviceUnit(namedtuple('DeviceUnit', [ 'unit', 'table' ])):
     if isinstance(instance, str):
       return instance
     return instance[1]
-    
+
 class modbus_interface():
 
     def __init__(self, url, scan_batching=None, options={}):
@@ -74,7 +74,7 @@ class modbus_interface():
 
     def getDevice(self):
       return self._url._replace(query='').geturl()
-      
+
     def connect(self):
         # Connects to the modbus device
         if self._url.scheme == 'serial':
@@ -92,13 +92,14 @@ class modbus_interface():
                 params.get('stopbits', [1])[0]
               )
             # baudrate parity stopbits
+            logging.info("Connecting serial port: {} with baudrate {}".format(port, baudrate))
             self._mb = ModbusSerialClient(port=port,
                                        method='rtu',
-                                       timeout=1,RetryOnEmpty=True, retries=1
+                                       timeout=0.3, retry_on_empty=True, retries=3
                                        , baudrate=int(baudrate), parity=parity, stopbits=int(stopbits))
         else:
             host=self._url.hostname
-            port=self._url.port or 502
+            port=self._url.port if self._url.hasattr('port') else 502
             if self._url.scheme == 'sungrow':
                 from SungrowModbusTcpClient import SungrowModbusTcpClient
                 # Some later versions of the sungrow inverter firmware encrypts the payloads of
@@ -130,7 +131,7 @@ class modbus_interface():
         # initialize default values ...
         self._tables[device_unit]
         self._values[device_unit]
-        
+
         # Register enough sequential addresses to fill the size of the register type.
         # Note: Each address provides 2 bytes of data.
         for i in range(type_length(type)):
@@ -141,7 +142,7 @@ class modbus_interface():
       for (table, registers) in self._tables.items():
         registers = sorted(registers)
         self._registers[table] = registers
-    
+
     def _get_scan_ranges(self, registers):
       ranges = [ ]
       if self._range_batching:
@@ -169,12 +170,11 @@ class modbus_interface():
 
       return ranges
 
-    
+
     def poll(self):
         # Polls for the values marked as interesting in self._registers.
         for (table, registers) in self._registers.items():
             ranges = self._get_scan_ranges(registers)
-            
             for ( group, count ) in ranges:
               try:
                   logging.debug('{}: Read {} registers, starting at {}'.format(table, count, group))
@@ -286,6 +286,7 @@ valid_types = [ 'uint16', 'int16'
               , 'float'
               , 'float_be', '>float'
               , 'float_le', '<float'
+              , 'int32_dmk'
               ]
 
 def type_length(type):
@@ -293,7 +294,7 @@ def type_length(type):
     # Note: Each address provides 2 bytes of data.
     if type in ['int16', 'uint16']:
         return 1
-    elif type in ['int32', 'uint32', 'float']:
+    elif type in ['int32', 'uint32', 'float', 'int32_dmk']:
         return 2
     elif type in ['int64', 'uint64']:
         return 4
@@ -303,7 +304,7 @@ def type_signed(type):
     # Returns whether the provided type is signed
     if type in ['uint16', 'uint32', 'uint64']:
         return False
-    elif type in ['int16', 'int32', 'int64']:
+    elif type in ['int16', 'int32', 'int64', 'int32_dmk']:
         return True
     raise ValueError ("Unsupported type {}".format(type))
 
@@ -315,6 +316,19 @@ def _convert_from_bytes_to_type(value, type, word_order):
       return struct.unpack('>f', value)[0]
     elif type in ( 'float_le', '<float' ):
       return struct.unpack('<f', value)[0]
+    elif type == 'int32_dmk':
+      #convert back to int object first
+      cvalue = int.from_bytes(value,byteorder='big',signed=False)
+      #check bit 31
+      bit_31_state = (cvalue >> 31) & 1
+      #mask bits 29..31
+      mvalue = cvalue & ~(0b111 << 29)
+      #if bit 31 true then vlaue is negative
+      if bit_31_state == 1:
+        rvalue = -mvalue
+      else:
+        rvalue = mvalue
+      return rvalue
     else:
       signed = type_signed(type)
       return int.from_bytes(value,byteorder='big',signed=signed)
