@@ -13,6 +13,8 @@ MAX_SCAN_BATCHING = 100
 DEFAULT_WRITE_BLOCK_INTERVAL_S = 0.1
 DEFAULT_WRITE_SLEEP_S = 0.05
 DEFAULT_READ_SLEEP_S = 0.05
+DEFAULT_TIMEOUT = 1
+DEFAULT_RETRIES = 3
 VALID_TABLES = [ 'input', 'holding' ]
 
 class WordOrder(Enum):
@@ -71,6 +73,11 @@ class modbus_interface():
                 self._scan_batching = MAX_SCAN_BATCHING
             else:
                 self._scan_batching = scan_batching
+        self._timeout = options.get('timeout', DEFAULT_TIMEOUT)
+        self._retries = options.get('retries', DEFAULT_RETRIES)
+        self._write_block_interval = options.get('write_block_interval', DEFAULT_WRITE_BLOCK_INTERVAL_S)
+        self._write_sleep = options.get('write_sleep', DEFAULT_WRITE_SLEEP_S)
+        self._read_sleep = options.get('read_sleep', DEFAULT_READ_SLEEP_S)
 
     def getDevice(self):
       return self._url._replace(query='').geturl()
@@ -93,10 +100,7 @@ class modbus_interface():
               )
             # baudrate parity stopbits
             logging.info("Connecting serial port: {} with baudrate {}".format(port, baudrate))
-            self._mb = ModbusSerialClient(port=port,
-                                       method='rtu',
-                                       timeout=0.3, retry_on_empty=True, retries=3
-                                       , baudrate=int(baudrate), parity=parity, stopbits=int(stopbits))
+            self._mb = ModbusSerialClient(port=port, method='rtu', timeout=self._timeout, retry_on_empty=True, retries=self._retries, baudrate=int(baudrate), parity=parity, stopbits=int(stopbits))
         else:
             host=self._url.hostname
             port=self._url.port if self._url.hasattr('port') else 502
@@ -105,9 +109,7 @@ class modbus_interface():
                 # Some later versions of the sungrow inverter firmware encrypts the payloads of
                 # the modbus traffic. https://github.com/rpvelloso/Sungrow-Modbus is a drop-in
                 # replacement for ModbusTcpClient that manages decrypting the traffic for us.
-                self._mb = SungrowModbusTcpClient.SungrowModbusTcpClient(host=host, port=port,
-                                                  framer=ModbusSocketFramer, timeout=1,
-                                                  RetryOnEmpty=True, retries=1)
+                self._mb = SungrowModbusTcpClient.SungrowModbusTcpClient(host=host, port=port, framer=ModbusSocketFramer, timeout=self._timeout, retry_on_empty=True, retries=self._reties)
             else:
                 try:
                     # Pymodbus >= 3.0
@@ -119,9 +121,7 @@ class modbus_interface():
                 except ImportError:
                     # Pymodbus < 3.0
                     from pymodbus.client.sync import ModbusTcpClient, ModbusSocketFramer
-                self._mb = ModbusTcpClient(host, port,
-                                           framer=ModbusSocketFramer, timeout=1,
-                                           RetryOnEmpty=True, retries=1)
+                self._mb = ModbusTcpClient(host, port, framer=ModbusSocketFramer, timeout=self._timeout, retry_on_empty=True, retries=self._timeout)
 
     def add_monitor_register(self, device_unit, addr, type='uint16'):
         # Accepts a modbus register and table to monitor
@@ -183,7 +183,7 @@ class modbus_interface():
                       key = group + x
                       self._values[table][key] = values[x]
                   # Avoid back-to-back read operations that could overwhelm some modbus devices.
-                  sleep(DEFAULT_READ_SLEEP_S)
+                  sleep(self._read_sleep)
               except ValueError as e:
                   logging.error("{}".format(e))
                   logging.debug(e, stack_info=True)
@@ -226,7 +226,7 @@ class modbus_interface():
 
         self._process_writes()
 
-    def _process_writes(self, max_block_s=DEFAULT_WRITE_BLOCK_INTERVAL_S):
+    def _process_writes(self, max_block_s=self._write_block_interval):
         # TODO I am not entirely happy with this system. It's supposed to prevent
         # anything overwhelming the modbus interface with a heap of rapid writes,
         # but without its own event loop it could be quite a while between calls to
@@ -257,7 +257,7 @@ class modbus_interface():
                     or_mask = value
                     new_value = (old_value & and_mask) | (or_mask & (mask))
                     self._mb.write_register(addr, new_value, unit=unit)
-                sleep(DEFAULT_WRITE_SLEEP_S)
+                sleep(self._write_sleep)
         except Exception as e:
             # BUG catch only the specific exception that means pymodbus failed to write to a register
             # the modbus device doesn't support, not an error at the TCP layer.

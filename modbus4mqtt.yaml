@@ -8,11 +8,18 @@
 
 url: serial:///dev/ttyUSB0?comset=8N1&baud=19200
 
+
 update_rate: 10
 options:
   word_order: highlow
   scan_batching: 12
   range_batching: True
+  timeout: 0.3
+  retries: 4
+  write_block_interval: 0.2
+  write_sleep: 0.05
+  read_sleep: 0.05
+
 units:
 # DMK3
   - &UNIT_0x01

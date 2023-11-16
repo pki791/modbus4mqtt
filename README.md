@@ -6,7 +6,22 @@ I added small changes which i will log here:
 - MQTT published messages have set retain to True and QOS=1
 - JSON messages have a TimeStamp added
 - added "int32_dmk" type, a special type for DMK3x and DMK6x meter to proper read active power values
+- all timing and retry parameters are now in options in the config file
+- polls are now timed by a timer every x secons, is is not the pause between polls
 
+
+Example options part:
+```yaml
+options:
+  word_order: highlow
+  scan_batching: 12
+  range_batching: True
+  timeout: 0.3
+  retries: 4
+  write_block_interval: 0.2
+  write_sleep: 0.05
+  read_sleep: 0.05
+```
 
 
 This is my fork of https://github.com/tjhowse/modbus4mqtt
@@ -63,7 +78,7 @@ word_order: highlow
 | ---------- | -------- | ------- | ----------- |
 | ip | Required | N/A | The IP address of the modbus device to be polled. Presently only modbus TCP/IP is supported. |
 | port | Optional | 502 | The port on the modbus device to connect to. |
-| update_rate | Optional | 5 | The number of seconds between polls of the modbus device. |
+| update_rate | Optional | 5 | The number of seconds between the start time of each poll of the modbus device. |
 | address_offset | Optional | 0 | This offset is applied to every register address to accommodate different Modbus addressing systems. In many Modbus devices the first register is enumerated as 1, other times 0. See section 4.4 of the Modbus spec. |
 | variant | Optional | N/A | Allows variants of the ModbusTcpClient library to be used. Setting this to 'sungrow' enables support of SungrowModbusTcpClient. This library transparently decrypts the modbus comms with sungrow SH inverters running newer firmware versions. |
 | scan_batching | Optional | 10 | Must be between 1 and 100 inclusive. Modbus read operations are more efficient in bigger batches of contiguous registers, but different devices have different limits on the size of the batched reads. This setting can also be helpful when building a modbus register map for an uncharted device. In some modbus devices a single invalid register in a read range will fail the entire read operation. By setting `scan_batching` to `1` each register will be scanned individually. This will be very inefficient and should not be used in production as it will saturate the link with many read operations. |
