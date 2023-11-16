@@ -1,40 +1,70 @@
-!exclude includes:
-- !include modbus4mqtt/PZEM-004T.yaml
-- !include modbus4mqtt/ORNO-WE516.yaml
+#mqtt_prefix=zamek-kiszewski
+# variable in the first line is the mqtt_topic_prefix loaded by the init script, format as is, no spaces etc allowed
 
-#url: serial:///dev/ttyUSB1?comset=8E1
-url: serial://com5
-update_rate: 3
-pub_topic: pzem-004t
+!exclude includes:
+- !include /etc/modbus4mqtt/DMG6.yaml
+- !include /etc/modbus4mqtt/MS16.yaml
+- !include /etc/modbus4mqtt/DMK3.yaml
+
+url: serial:///dev/ttyUSB0?comset=8N1&baud=19200
+
+update_rate: 10
 options:
-  word_order: lowhigh
-  scan_batching: 50
+  word_order: highlow
+  scan_batching: 12
   range_batching: True
 units:
-  - &UNIT_0x2C
-    unit: 0x2c
-    pub_topic: pzem-001
-  - &UNIT_0x48
-    unit: 0x48
-    pub_topic: pzem-002
+# DMK3
   - &UNIT_0x01
-    word_order: highlow
     unit: 0x01
-    pub_topic: orno3p1
+    pub_topic: data/hz1/aps
+#    set_topic: control/hz1/aps
+
+# DMG6
+  - &UNIT_0x0B
+    unit: 0x0B
+    pub_topic: data/wm/aps
+#    set_topic: control/wm/aps
+
+
+  - &UNIT_0x65
+    unit: 0x65
+    pub_topic: data/hz1/rt
+#    set_topic: control/hz1/rt
+  - &UNIT_0xFF
+    unit: 0xFF
+    pub_topic: system/m4m
+
 
 devices:
-  - << : [ *UNIT_0x48, *PZEM_004T__INFO ]
-  - << : [ *UNIT_0x48, *PZEM_004T__ENERGY ]
-#  - << : [ *UNIT_0x48, *PZEM_004T__STATUS10 ]
-  - << : [ *UNIT_0x48, *PZEM_004T__SENSOR ]
-  
-  - << : [ *UNIT_0x2C, *PZEM_004T__INFO ]
-  - << : [ *UNIT_0x2C, *PZEM_004T__ENERGY ]
-#  - << : [ *UNIT_0x2C, *PZEM_004T__STATUS10 ]
-  - << : [ *UNIT_0x2C, *PZEM_004T__SENSOR ]
-    
-#  - << : [ *UNIT_0x01, *ORNO_WE516__INFO ]
-#  - << : [ *UNIT_0x01, *ORNO_WE516__ENERGY ]
-#  - << : [ *UNIT_0x01, *ORNO_WE516__POWER ]
-##  - << : [ *UNIT_0x01, *ORNO_WE516__STATUS10 ]
-#  - << : [ *UNIT_0x01, *ORNO_WE516__SENSOR ]
+#  - << : [ *UNIT_0xFF, *M4M ]
+# Adres 101
+  - << : [ *UNIT_0x65, *MS16__IO ]
+  - << : [ *UNIT_0x65, *MS16__ANALOG ]
+  - << : [ *UNIT_0x65, *MS16__MAIN ]
+  - << : [ *UNIT_0x65, *MS16__REMOTE ]
+#  - << : [ *UNIT_0x65, *MS16__CONTROL ]
+
+# Adres 1
+  - << : [ *UNIT_0x01, *DMK3__VOLT ]
+  - << : [ *UNIT_0x01, *DMK3__CURRENT ]
+  - << : [ *UNIT_0x01, *DMK3__POWER ]
+  - << : [ *UNIT_0x01, *DMK3__PF ]
+  - << : [ *UNIT_0x01, *DMK3__EQ ]
+#  - << : [ *UNIT_0x01, *DMK3__TOTAL ]
+
+# Adres 11
+  - << : [ *UNIT_0x0B, *DMG6__VOLT ]
+  - << : [ *UNIT_0x0B, *DMG6__CURRENT ]
+#  - << : [ *UNIT_0x0B, *DMG6__POWER ]
+  - << : [ *UNIT_0x0B, *DMG6__POWER_NEG ]
+#  - << : [ *UNIT_0x0B, *DMG6__PF ]
+  - << : [ *UNIT_0x0B, *DMG6__PF_NEG ]
+#  - << : [ *UNIT_0x0B, *DMG6__EQ ]
+  - << : [ *UNIT_0x0B, *DMG6__EQ_NEG ]
+  - << : [ *UNIT_0x0B, *DMG6__TOTAL ]
+#  - << : [ *UNIT_0x0B, *DMG6__TOTAL_NEG ]
+#  - << : [ *UNIT_0x0B, *DMG6__CONTROL ]
+
+
+
