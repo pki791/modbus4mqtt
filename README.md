@@ -1,6 +1,10 @@
 # Modbus4MQTT
 
-https://github.com/a-s-z-home/modbus4mqtt
+This is my fork of: https://github.com/a-s-z-home/modbus4mqtt
+I added small changes which i will log here:
+- pub_only_on_change defaults to false
+
+
 
 This is my fork of https://github.com/tjhowse/modbus4mqtt
 
@@ -101,7 +105,7 @@ This section of the YAML lists all the modbus registers that you consider intere
 | pub_topic | Optional | N/A | This is the topic to which the value of this register will be published. |
 | set_topic | Optional | N/A | Values published to this topic will be written to the Modbus device. Cannot yet be combined with json_key. See https://github.com/tjhowse/modbus4mqtt/issues/23 for details. |
 | retain | Optional | false | Controls whether the value of this register will be published with the retain bit set. |
-| pub_only_on_change | Optional | true | Controls whether this register will only be published if its value changed from the previous poll. |
+| pub_only_on_change | Optional | false | Controls whether this register will only be published if its value changed from the previous poll. |
 | table | Optional | holding | The Modbus table to read from the device. Must be 'holding' or 'input'. |
 | value_map | Optional | N/A | A series of human-readable and raw values for the setting. This will be used to translate between human-readable values via MQTT to raw values via Modbus. If a value_map is set for a register the interface will reject raw values sent via MQTT. If value_map is not set the interface will try to set the Modbus register to that value. Note that the scale is applied after the value is read from Modbus and before it is written to Modbus. |
 | scale | Optional | 1 | After reading a value from the Modbus register it will be multiplied by this scalar before being published to MQTT. Values published on this register's `set_topic` will be divided by this scalar before being written to Modbus. |
