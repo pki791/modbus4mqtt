@@ -34,6 +34,12 @@ be a complete solution.
 ```bash
 $ git clone https://github.com/a-s-z-home/modbus4mqtt
 $ pip3 install -r requirements.txt
+$ python run.py
+```
+
+or pack into one file with
+```bash
+$ pyinstaller --onefile run.py -n modbus4mqtt
 ```
 
 ## YAML definition
